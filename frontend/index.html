@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WebInfo — dev harness</title>
+<!-- TEMPORARY test harness. The real UI/UX will replace this file. -->
+<style>
+  :root { --bg:#0b0d12; --fg:#e6e8ee; --muted:#8a90a2; --accent:#7cf7c4; --card:#151924; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:14px/1.5 system-ui, sans-serif; background:var(--bg); color:var(--fg); }
+  main { max-width:1100px; margin:0 auto; padding:16px; display:grid; gap:12px; }
+  form { display:flex; gap:8px; }
+  input { flex:1; padding:10px 12px; border-radius:8px; border:1px solid #2a3040; background:var(--card); color:var(--fg); }
+  button { padding:10px 16px; border:0; border-radius:8px; background:var(--accent); color:#000; font-weight:600; cursor:pointer; }
+  #stage { position:relative; width:100%; aspect-ratio:1280/800; background:var(--card); border-radius:10px; overflow:hidden; }
+  #shot { width:100%; height:100%; object-fit:cover; display:block; transition:opacity .25s; }
+  #url { position:absolute; top:8px; left:8px; right:8px; padding:4px 10px; background:#000a; border-radius:6px; font-size:12px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  #cursor { position:absolute; width:22px; height:22px; margin:-11px 0 0 -11px; border-radius:50%;
+    border:2px solid var(--accent); box-shadow:0 0 12px var(--accent);
+    transition:left .45s cubic-bezier(.22,1,.36,1), top .45s cubic-bezier(.22,1,.36,1);
+    animation:breathe 1.6s ease-in-out infinite; pointer-events:none; left:50%; top:50%; }
+  #cursor.select { background:#7cf7c455; }
+  @keyframes breathe { 50% { transform:scale(1.35); box-shadow:0 0 22px var(--accent); } }
+  #hl { position:absolute; border:2px solid var(--accent); background:#7cf7c422; border-radius:4px; display:none; }
+  #log { font:12px ui-monospace, monospace; color:var(--muted); max-height:180px; overflow:auto; background:var(--card); padding:8px; border-radius:8px; }
+  #answer { background:var(--card); padding:12px; border-radius:8px; white-space:pre-wrap; }
+</style>
+</head>
+<body>
+<main>
+  <form id="f"><input id="q" placeholder="Ask anything, e.g. What is the current price of a Raspberry Pi 5 8GB on raspberrypi.com?" required><button>Ask</button></form>
+  <div id="stage"><img id="shot" alt=""><div id="url">idle</div><div id="hl"></div><div id="cursor"></div></div>
+  <div id="answer">—</div>
+  <div id="log"></div>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+let es, W = 1280, H = 800, queue = [], busy = false;
+const log = t => { $('log').textContent = t + '\n' + $('log').textContent; };
+const pct = (v, m) => (v / m * 100) + '%';
+// events are replayed with small delays so the cursor visibly travels
+function pump() {
+  if (busy || !queue.length) return; busy = true;
+  const [ev, d] = queue.shift(); handle(ev, d);
+  setTimeout(() => { busy = false; pump(); }, ev === 'cursor' ? 380 : 60);
+}
+function handle(ev, d) {
+  if (ev === 'screenshot') { W = d.width; H = d.height; $('shot').src = d.image; $('url').textContent = d.url; $('hl').style.display = 'none'; }
+  else if (ev === 'cursor') { $('cursor').style.left = pct(d.x, W); $('cursor').style.top = pct(d.y, H); $('cursor').classList.toggle('select', d.action === 'select'); }
+  else if (ev === 'highlight') { const s = $('hl').style; s.left = pct(d.x, W); s.top = pct(d.y, H); s.width = pct(d.w, W); s.height = pct(d.h, H); s.display = 'block'; }
+  else if (ev === 'navigate') $('url').textContent = '→ ' + d.url;
+  else if (ev === 'answer') $('answer').textContent = d.answer + '\n\n' + d.citations.map(c => '• ' + c.title + '\n  ' + c.url + '\n  "' + c.quote + '"').join('\n') + (d.cached ? '\n\n(cached)' : '');
+  else if (ev === 'error') $('answer').textContent = '⚠ ' + d.message;
+  if (ev !== 'screenshot') log(ev + ' ' + JSON.stringify(d).slice(0, 160));
+}
+$('f').onsubmit = e => {
+  e.preventDefault(); es && es.close(); queue = []; $('answer').textContent = 'Working…'; $('log').textContent = '';
+  es = new EventSource('/api/ask?q=' + encodeURIComponent($('q').value));
+  ['run','status','search_results','navigate','screenshot','cursor','page_read','page_error','highlight','answer','error','done']
+    .forEach(n => es.addEventListener(n, m => { queue.push([n, JSON.parse(m.data)]); pump(); if (n === 'done') es.close(); }));
+  es.onerror = () => { log('stream closed'); es.close(); };
+};
+</script>
+</body>
+</html>
