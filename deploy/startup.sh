@@ -8,15 +8,16 @@ if ! swapon --show | grep -q /swapfile; then
   grep -q /swapfile /etc/fstab || echo '/swapfile none swap sw 0 0' >> /etc/fstab
   sysctl -w vm.swappiness=20
 fi
+# Docker config goes in BEFORE Docker is installed, so we never restart the daemon mid-build.
+mkdir -p /etc/docker
+[ -f /etc/docker/daemon.json ] || cat > /etc/docker/daemon.json <<'J'
+{"log-driver":"json-file","log-opts":{"max-size":"10m","max-file":"3"}}
+J
 if ! command -v docker >/dev/null; then
   apt-get update
   apt-get install -y ca-certificates curl git
   curl -fsSL https://get.docker.com | sh
-  systemctl enable --now docker
 fi
-# Keep logs/images from slowly filling the free 30 GB disk
-cat > /etc/docker/daemon.json <<'J'
-{"log-driver":"json-file","log-opts":{"max-size":"10m","max-file":"3"}}
-J
-systemctl restart docker
-[ -d /opt/webinfo ] && (cd /opt/webinfo && docker compose up -d) || true
+systemctl enable --now docker
+touch /var/run/webinfo-boot-done
+[ -f /opt/webinfo/.env ] && (cd /opt/webinfo && docker compose up -d) || true
