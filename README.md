@@ -12,6 +12,8 @@ question ─► Tavily search (1 credit, cached 24h)
          ─► revisit source, scroll to quote, highlight ─► answer (cached 12h)
 ```
 
+**3D architecture:** [`docs/architecture.html`](docs/architecture.html) — open in a browser to orbit the system, play the question flow or deploy path, and map every repo file to its component.
+
 **Stack:** FastAPI · Playwright/Chromium · Gemini REST (2-key rotation) · Tavily · Postgres 16 · Docker Compose · GCP e2-micro
 
 ## Free-tier guard rails

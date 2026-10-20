@@ -1,0 +1,459 @@
+<title>WebInfo Architecture</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a 3D "server floor" stage on the left, a run-log + inspector console on the right, repo map underneath.
+   Single committed dark look (a control-room screen), set explicitly for every color. */
+:root {
+  color-scheme: dark;
+  --bg: #0c1118;          /* blue-black floor */
+  --panel: #131a24;
+  --line: #243142;
+  --fg: #dfe7f1;
+  --muted: #8796a8;
+  --cursor: #ffb547;      /* the agent's cursor / active flow — amber */
+  --vm: #5fb3ff;          /* GCP VM + containers — sky */
+  --ext: #c58cff;         /* external APIs — violet */
+  --web: #6ee0b8;         /* the open web — mint */
+  --deploy: #ff7a8a;      /* deploy path — coral */
+  --f-display: "Chakra Petch", "Rajdhani", system-ui, sans-serif;
+  --f-body: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+html, body { background: var(--bg); color: var(--fg); }
+body { font: 15px/1.55 var(--f-body); }
+.wrap { max-width: 1320px; margin: 0 auto; padding-block: 20px 40px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; gap: 18px; }
+header { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px; }
+h1 { font: 700 clamp(26px, 4vw, 40px)/1.05 var(--f-display); letter-spacing: .01em; margin: 0; text-wrap: balance; }
+h1 em { font-style: normal; color: var(--cursor); }
+.sub { color: var(--muted); margin: 6px 0 0; max-width: 62ch; }
+.modes { display: flex; gap: 6px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 4px; }
+.modes button { font: 600 13px var(--f-display); letter-spacing: .06em; text-transform: uppercase; color: var(--muted);
+  background: transparent; border: 0; border-radius: 7px; padding: 8px 14px; cursor: pointer; }
+.modes button[aria-pressed="true"] { background: var(--line); color: var(--fg); }
+.modes button:focus-visible, .ctl:focus-visible, .step:focus-visible, .file:focus-visible { outline: 2px solid var(--cursor); outline-offset: 2px; }
+
+.grid { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 14px; align-items: start; }
+@media (max-width: 920px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+
+.stage { position: relative; height: clamp(420px, 68vh, 680px); max-width: 100%; border: 1px solid var(--line); border-radius: 12px;
+  overflow: hidden; background: radial-gradient(120% 90% at 50% 20%, #142034 0%, var(--bg) 70%); touch-action: none; }
+.stage canvas { display: block; width: 100%; height: 100%; cursor: grab; }
+.stage canvas:active { cursor: grabbing; }
+.labels { position: absolute; inset: 0; pointer-events: none; }
+.lbl { position: absolute; transform: translate(-50%, -100%); white-space: nowrap; font: 600 12px var(--f-display);
+  letter-spacing: .05em; text-transform: uppercase; color: var(--fg); padding: 3px 8px; border-radius: 6px;
+  background: rgba(12,17,24,.78); border: 1px solid var(--line); transition: border-color .2s, color .2s, opacity .2s; }
+.lbl small { display: block; font: 400 10.5px var(--f-mono); text-transform: none; letter-spacing: 0; color: var(--muted); }
+.lbl.on { border-color: var(--cursor); color: var(--cursor); }
+.lbl.dim { opacity: .35; }
+.hud { position: absolute; left: 12px; right: 12px; bottom: 12px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.ctl { font: 600 12px var(--f-display); letter-spacing: .06em; text-transform: uppercase; color: var(--fg); background: rgba(19,26,36,.9);
+  border: 1px solid var(--line); border-radius: 8px; padding: 7px 12px; cursor: pointer; }
+.ctl:hover { border-color: var(--muted); }
+.caption { flex: 1 1 220px; min-width: 0; font: 13px var(--f-body); color: var(--fg); background: rgba(19,26,36,.9);
+  border: 1px solid var(--line); border-left: 3px solid var(--cursor); border-radius: 8px; padding: 7px 12px; }
+.caption b { font-family: var(--f-display); letter-spacing: .03em; color: var(--cursor); margin-right: 6px; }
+.hint { position: absolute; top: 10px; right: 12px; font: 11px var(--f-mono); color: var(--muted); }
+.legend { position: absolute; top: 10px; left: 12px; display: flex; gap: 10px; flex-wrap: wrap; font: 11px var(--f-mono); color: var(--muted); }
+.hint, .legend { pointer-events: none; }
+@media (max-width: 560px) { .hint { display: none; } }
+.legend i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+
+aside { display: grid; gap: 14px; min-width: 0; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; min-width: 0; }
+.card h2 { font: 600 12px var(--f-display); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin: 0 0 10px; }
+.steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; counter-reset: s; }
+.step { display: grid; grid-template-columns: 26px 1fr; gap: 8px; align-items: baseline; padding: 6px 8px; border-radius: 8px;
+  cursor: pointer; color: var(--muted); border: 1px solid transparent; }
+.step::before { counter-increment: s; content: counter(s, decimal-leading-zero); font: 500 11px var(--f-mono); }
+.step.on { color: var(--fg); background: #1a2331; border-color: var(--line); }
+.step.on::before { color: var(--cursor); }
+.step span { font-size: 13.5px; }
+.inspector .chip { display: inline-block; font: 500 11px var(--f-mono); padding: 2px 8px; border-radius: 99px; border: 1px solid currentColor; margin-bottom: 8px; }
+.inspector h3 { font: 700 20px/1.15 var(--f-display); margin: 0 0 6px; }
+.inspector p { margin: 0 0 10px; color: var(--fg); }
+.inspector ul { margin: 0 0 10px; padding-left: 18px; color: var(--fg); font-size: 13.5px; }
+.inspector li { margin: 2px 0; }
+.inspector code, .files code { font: 12.5px var(--f-mono); color: var(--web); overflow-wrap: anywhere; }
+.inspector .files { display: flex; flex-wrap: wrap; gap: 6px; }
+.inspector .files code { background: #0f1620; border: 1px solid var(--line); padding: 2px 7px; border-radius: 6px; }
+
+.repo h2 { margin-bottom: 4px; }
+.repo .note { color: var(--muted); margin: 0 0 12px; font-size: 13.5px; }
+.tree { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 8px; }
+.file { text-align: left; display: grid; gap: 2px; background: #0f1620; border: 1px solid var(--line); border-radius: 9px; padding: 9px 11px;
+  color: var(--fg); cursor: pointer; font: inherit; }
+.file:hover { border-color: var(--muted); }
+.file code { font: 500 12.5px var(--f-mono); color: var(--fg); }
+.file span { font-size: 12.5px; color: var(--muted); }
+.file i { font-style: normal; font: 500 10.5px var(--f-mono); }
+@media (prefers-reduced-motion: reduce) { .lbl { transition: none; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <h1>WebInfo <em>Architecture</em></h1>
+      <p class="sub">How one question travels through the repo: search, a headless browser on the open web, Gemini extraction, and the evidence highlight, all on one free-tier GCP VM.</p>
+    </div>
+    <div class="modes" role="group" aria-label="Flow">
+      <button id="m-query" aria-pressed="true">Question flow</button>
+      <button id="m-deploy" aria-pressed="false">Deploy path</button>
+    </div>
+  </header>
+
+  <div class="grid">
+    <div class="stage" id="stage">
+      <canvas id="c" aria-label="3D architecture diagram. Drag to orbit, scroll to zoom, click a component."></canvas>
+      <div class="labels" id="labels"></div>
+      <div class="legend">
+        <span><i style="background:var(--vm)"></i>GCP VM · Docker</span>
+        <span><i style="background:var(--ext)"></i>External API</span>
+        <span><i style="background:var(--web)"></i>Open web</span>
+        <span><i style="background:var(--deploy)"></i>Deploy</span>
+      </div>
+      <div class="hint">drag · scroll · click</div>
+      <div class="hud">
+        <button class="ctl" id="prev" aria-label="Previous step">◀</button>
+        <button class="ctl" id="play" aria-label="Pause">Pause</button>
+        <button class="ctl" id="next" aria-label="Next step">▶</button>
+        <div class="caption" id="caption"></div>
+      </div>
+    </div>
+
+    <aside>
+      <section class="card">
+        <h2 id="steps-title">Question flow</h2>
+        <ol class="steps" id="steps"></ol>
+      </section>
+      <section class="card inspector" id="inspector" aria-live="polite"></section>
+    </aside>
+  </div>
+
+  <section class="card repo">
+    <h2>Repo map · jayendravarma04/webinfo</h2>
+    <p class="note">Every file in the repo and the component it builds. Click one to find it in the scene.</p>
+    <div class="tree" id="tree"></div>
+  </section>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(() => {
+const C = { cursor: 0xffb547, vm: 0x5fb3ff, ext: 0xc58cff, web: 0x6ee0b8, deploy: 0xff7a8a, user: 0xdfe7f1, line: 0x3d5068 };
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// ---------- data ----------
+const NODES = {
+  user:    { name: 'Browser UI', sub: 'EventSource · cursor replay', pos: [0, 1.0, 6.6], size: [2.2, .5, 1.2], color: C.user, layer: 'Client',
+    desc: 'Opens one Server-Sent Events stream per question and replays the events so the gaming cursor visibly travels over each screenshot.',
+    facts: ['Listens to 12 event types (run, screenshot, cursor, highlight, answer…)', 'Scales cursor x/y from 1280×800 screenshot space', 'Temporary harness; your design replaces it'],
+    files: ['frontend/index.html', 'docs/EVENTS.md'] },
+  api:     { name: 'FastAPI', sub: '/api/ask · SSE', pos: [-1.55, .75, 1.1], size: [1.5, .9, 1.1], color: C.vm, layer: 'Container · api',
+    desc: 'Accepts the question, starts the agent as a task and streams its events back. Cancels the run if the browser disconnects.',
+    facts: ['Endpoints: /api/ask, /api/health, /api/usage, /api/history', 'Max 2 concurrent runs; 15 questions per IP per hour', 'Keep-alive every 15 s, uvicorn with 1 worker'],
+    files: ['backend/app/main.py', 'backend/app/config.py'] },
+  agent:   { name: 'Agent loop', sub: 'search → read → follow', pos: [.55, .75, 1.1], size: [1.5, .9, 1.1], color: C.cursor, layer: 'Container · api',
+    desc: 'The orchestrator: check cache, search, browse the top pages, ask Gemini once, follow one link if needed, then point at the evidence.',
+    facts: ['1 Tavily credit + 1–2 Gemini calls per new question', 'Picks 3 pages, one per domain, skips PDFs', 'Page text is treated as untrusted data in the prompt'],
+    files: ['backend/app/agent.py'] },
+  chromium:{ name: 'Chromium', sub: 'Playwright · 1 tab', pos: [-1.55, .75, -1.05], size: [1.5, .9, 1.1], color: C.vm, layer: 'Container · api',
+    desc: 'Headless browser that really navigates the sites: dismisses cookie banners, reads visible blocks with coordinates, scrolls, and screenshots.',
+    facts: ['One tab at a time to fit 1 GB RAM', 'Blocks media, fonts, ad hosts', 'SSRF guard: no private IPs or the GCP metadata server', '1280×800 JPEG screenshots at quality 55'],
+    files: ['backend/app/browser.py'] },
+  pg:      { name: 'Postgres 16', sub: 'cache · quota · runs', pos: [2.75, .75, -.6], size: [1.2, .9, 1.2], color: C.vm, layer: 'Container · db',
+    desc: 'Runs in its own container on the same VM (Cloud SQL has no free tier). Holds the answer cache, the API quota ledger and run history.',
+    facts: ['Tables: cache, usage, runs', 'Answers cached 12 h, searches 24 h', 'Stores key fingerprints only, never raw keys', 'shared_buffers 32 MB, container capped at 192 MB'],
+    files: ['backend/app/db.py'] },
+  tavily:  { name: 'Tavily', sub: 'basic search', pos: [6.3, 1.1, 1.8], size: [1.4, .7, 1.0], color: C.ext, layer: 'External API',
+    desc: 'Finds candidate pages for the question. Basic depth costs 1 credit; results are cached so repeats are free.',
+    facts: ['5 results per search', 'Safety cap 900 credits/month (free plan has 1,000)'],
+    files: ['backend/app/search.py'] },
+  gemini:  { name: 'Gemini', sub: 'Flash-Lite · 2 keys', pos: [6.3, 1.1, -1.4], size: [1.4, .7, 1.0], color: C.ext, layer: 'External API',
+    desc: 'Reads the numbered page blocks and returns JSON: the answer, verbatim quotes, and an optional link to follow.',
+    facts: ['Model auto-picked through ListModels (no quota used)', 'Two keys rotate; a 429 benches a key for 60 s', 'Cap 400 calls per key per day, 4 s spacing', 'JSON response mode, temperature 0.1'],
+    files: ['backend/app/llm.py'] },
+  web:     { name: 'The open web', sub: 'result sites', pos: [-6.4, 1.1, 0], size: [1.6, .7, 1.6], color: C.web, layer: 'Internet',
+    desc: 'The real websites from the search results. The agent visits up to 3, plus one followed link when the answer is elsewhere.',
+    facts: ['Navigation is visible to the user as live screenshots', 'Evidence page is reopened and scrolled to the quote'],
+    files: [] },
+  github:  { name: 'GitHub', sub: 'webinfo · main', pos: [-3.2, 1.4, -6.2], size: [1.6, .6, 1.0], color: C.deploy, layer: 'Source',
+    desc: 'The private repo holding everything on this page. The VM pulls from it on install and on every update.',
+    facts: ['Branch: main', 'Never contains .env or API keys'],
+    files: ['README.md', '.gitignore', '.dockerignore', '.env.example'] },
+  shell:   { name: 'Cloud Shell', sub: 'gcloud · free', pos: [1.6, 1.4, -6.2], size: [1.6, .6, 1.0], color: C.deploy, layer: 'Deploy',
+    desc: 'Free browser terminal in the GCP console. Runs the one script that creates the VM and firewall rule.',
+    facts: ['Zone us-central1-a (free-tier region)', 'Firewall rule webinfo-allow-http opens tcp:80 only'],
+    files: ['deploy/create-vm.sh'] },
+  vm:      { name: 'e2-micro VM', sub: 'Debian 12 · Docker', pos: [.4, -.05, .2], size: [8.2, .18, 6.6], color: C.vm, layer: 'GCP Compute Engine',
+    desc: 'One Always-Free-eligible VM running Docker Compose with two containers. 2 GB swap lets Chromium, Postgres and the API share 1 GB RAM.',
+    facts: ['30 GB pd-standard boot disk', 'No service account attached', 'api container 768 MB, db 192 MB, log rotation on', 'Stop it when not demoing to save trial credit'],
+    files: ['docker-compose.yml', 'backend/Dockerfile', 'backend/requirements.txt', 'deploy/startup.sh', 'deploy/install.sh', 'deploy/update.sh'] },
+};
+
+const FILES = [
+  ['backend/app/main.py', 'api', 'HTTP + SSE endpoints, rate limit, run lifecycle'],
+  ['backend/app/agent.py', 'agent', 'Search → browse → extract → follow → evidence'],
+  ['backend/app/browser.py', 'chromium', 'Playwright navigator, cursor events, SSRF guard'],
+  ['backend/app/llm.py', 'gemini', 'Gemini REST, key rotation, daily caps'],
+  ['backend/app/search.py', 'tavily', 'Tavily search with cache + monthly cap'],
+  ['backend/app/db.py', 'pg', 'Schema, cache, quota ledger, run history'],
+  ['backend/app/config.py', 'api', 'All limits and settings from .env'],
+  ['backend/tests/e2e_mock.py', 'agent', 'Offline E2E: real browser, fake APIs'],
+  ['frontend/index.html', 'user', 'Temporary UI harness with breathing cursor'],
+  ['docs/EVENTS.md', 'user', 'SSE event contract for the real UI'],
+  ['docker-compose.yml', 'vm', 'api + db services sized for e2-micro'],
+  ['backend/Dockerfile', 'vm', 'python:3.12-slim + Chromium headless shell'],
+  ['deploy/create-vm.sh', 'shell', 'Creates the free-tier VM and firewall rule'],
+  ['deploy/startup.sh', 'vm', 'Boot: swap, Docker, log rotation'],
+  ['deploy/install.sh', 'vm', 'Prompts for keys, writes .env, builds'],
+  ['deploy/update.sh', 'vm', 'git pull + rebuild + prune'],
+  ['.env.example', 'github', 'Template for keys and caps'],
+  ['README.md', 'github', 'Overview, limits, deploy steps'],
+];
+
+const FLOWS = {
+  query: [
+    { t: 'Question in', d: 'The browser opens GET /api/ask?q=… as a Server-Sent Events stream.', e: [['user', 'api']] },
+    { t: 'Cache check', d: 'Asked in the last 12 hours? Answer comes straight from Postgres with zero API calls.', e: [['api', 'agent'], ['agent', 'pg']] },
+    { t: 'Search', d: 'Tavily basic search for 1 credit. Results are cached for 24 hours.', e: [['agent', 'tavily']] },
+    { t: 'Navigate', d: 'Chromium opens the top 3 result sites one by one and reads their visible text blocks.', e: [['agent', 'chromium'], ['chromium', 'web']] },
+    { t: 'Stream the cursor', d: 'Screenshots plus cursor hover and scroll positions stream to the UI live.', e: [['chromium', 'api'], ['api', 'user']] },
+    { t: 'Extract', d: 'One Gemini Flash-Lite call returns the answer, verbatim quotes and an optional link. Keys rotate on 429.', e: [['agent', 'gemini']] },
+    { t: 'Follow a link', d: 'Answer not on these pages? Open the suggested link and ask Gemini once more (max 1 hop).', e: [['agent', 'chromium'], ['chromium', 'web'], ['agent', 'gemini']] },
+    { t: 'Point to evidence', d: 'Reopen the source, scroll to the quote, glide the cursor there and draw the highlight box.', e: [['chromium', 'web'], ['chromium', 'api'], ['api', 'user']] },
+    { t: 'Answer and cache', d: 'Answer with citations goes to the UI and is saved in Postgres with the run history.', e: [['agent', 'pg'], ['api', 'user']] },
+  ],
+  deploy: [
+    { t: 'Clone in Cloud Shell', d: 'Clone jayendravarma04/webinfo into the free Cloud Shell terminal.', e: [['github', 'shell']] },
+    { t: 'Create the VM', d: 'deploy/create-vm.sh makes an e2-micro with a 30 GB standard disk and opens tcp:80.', e: [['shell', 'vm']] },
+    { t: 'First boot', d: 'deploy/startup.sh adds 2 GB swap, installs Docker and turns on log rotation.', e: [], focus: 'vm' },
+    { t: 'Install', d: 'On the VM, deploy/install.sh clones the repo, asks for keys with hidden input, writes .env and builds.', e: [['github', 'vm']] },
+    { t: 'Containers up', d: 'Docker Compose starts Postgres, then the API with Chromium once the database is healthy.', e: [['vm', 'pg'], ['vm', 'api']] },
+    { t: 'Update', d: 'deploy/update.sh pulls main, rebuilds and prunes old images.', e: [['github', 'vm']] },
+  ],
+};
+
+// ---------- scene ----------
+const stage = document.getElementById('stage'), canvas = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+const scene = new THREE.Scene();
+scene.fog = new THREE.Fog(0x0c1118, 22, 42);
+const camera = new THREE.PerspectiveCamera(42, 1, .1, 100);
+scene.add(new THREE.AmbientLight(0xffffff, .55));
+const key = new THREE.DirectionalLight(0xffffff, .7); key.position.set(4, 10, 6); scene.add(key);
+
+const grid = new THREE.GridHelper(40, 40, 0x1c2838, 0x16202d); grid.position.y = -.4; scene.add(grid);
+
+const meshes = [], nodeObj = {};
+function addNode(id) {
+  const n = NODES[id];
+  const geo = new THREE.BoxGeometry(...n.size);
+  const isVm = id === 'vm';
+  const mat = new THREE.MeshStandardMaterial({ color: n.color, emissive: n.color, emissiveIntensity: isVm ? .05 : .18,
+    transparent: true, opacity: isVm ? .22 : .85, roughness: .5, metalness: .1 });
+  const m = new THREE.Mesh(geo, mat); m.position.set(...n.pos); m.userData.id = id;
+  const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({ color: n.color, transparent: true, opacity: .9 }));
+  m.add(edges); scene.add(m); meshes.push(m);
+  nodeObj[id] = { mesh: m, mat, edges, base: mat.emissiveIntensity };
+}
+Object.keys(NODES).forEach(addNode);
+
+// Docker container outlines on the VM
+function frame(x0, x1, z0, z1, label) {
+  const g = new THREE.BoxGeometry(x1 - x0, 1.5, z1 - z0);
+  const l = new THREE.LineSegments(new THREE.EdgesGeometry(g), new THREE.LineDashedMaterial({ color: C.vm, dashSize: .18, gapSize: .12, transparent: true, opacity: .55 }));
+  l.computeLineDistances(); l.position.set((x0 + x1) / 2, .75, (z0 + z1) / 2); scene.add(l);
+  return { pos: new THREE.Vector3(x0 + .55, .05, z1), label };
+}
+const frames = [frame(-2.55, 1.55, -1.9, 1.95, 'container: api'), frame(1.95, 3.55, -1.45, .25, 'container: db')];
+
+// open-web cluster
+for (let i = 0; i < 7; i++) {
+  const s = .28 + Math.random() * .2;
+  const b = new THREE.Mesh(new THREE.BoxGeometry(s, s * .7, s), new THREE.MeshStandardMaterial({ color: C.web, emissive: C.web, emissiveIntensity: .25, transparent: true, opacity: .7 }));
+  const a = i / 7 * Math.PI * 2; b.position.set(-6.4 + Math.cos(a) * 1.45, 1.1 + Math.sin(i * 1.7) * .4, Math.sin(a) * 1.45);
+  scene.add(b);
+}
+
+// edges
+const anchor = id => id === 'vm' ? new THREE.Vector3(.4, .2, -3) : new THREE.Vector3(...NODES[id].pos);
+const edgeObj = {};
+function edge(a, b) {
+  const k = [a, b].sort().join('|');
+  if (edgeObj[k]) return edgeObj[k];
+  const p0 = anchor(a), p1 = anchor(b);
+  const mid = p0.clone().add(p1).multiplyScalar(.5); mid.y += 1 + p0.distanceTo(p1) * .12;
+  const curve = new THREE.QuadraticBezierCurve3(p0, mid, p1);
+  const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(curve.getPoints(48)),
+    new THREE.LineBasicMaterial({ color: C.line, transparent: true, opacity: .7 }));
+  scene.add(line);
+  return edgeObj[k] = { curve, line, from: a };
+}
+Object.values(FLOWS).flat().forEach(s => s.e.forEach(([a, b]) => edge(a, b)));
+
+// packets
+const packetGeo = new THREE.SphereGeometry(.09, 12, 12);
+let packets = [];
+function setPackets(step, color) {
+  packets.forEach(p => scene.remove(p.m)); packets = [];
+  step.e.forEach(([a, b], i) => {
+    const e = edge(a, b), rev = e.from !== a;
+    for (let j = 0; j < 4; j++) {
+      const m = new THREE.Mesh(packetGeo, new THREE.MeshBasicMaterial({ color }));
+      scene.add(m); packets.push({ m, e, rev, off: j / 4 + i * .13 });
+    }
+  });
+}
+
+// labels
+const labelsEl = document.getElementById('labels'), labelEls = {};
+Object.entries(NODES).forEach(([id, n]) => {
+  const d = document.createElement('div'); d.className = 'lbl';
+  d.innerHTML = `${n.name}<small>${n.sub}</small>`; labelsEl.appendChild(d); labelEls[id] = d;
+});
+const frameLbls = frames.map(f => { const d = document.createElement('div'); d.className = 'lbl'; d.style.borderStyle = 'dashed';
+  d.style.color = 'var(--vm)'; d.textContent = f.label; labelsEl.appendChild(d); return { d, pos: f.pos }; });
+
+// ---------- camera orbit ----------
+const orbit = { theta: .38, phi: 1.02, r: 17, target: new THREE.Vector3(0, .6, 0), tTheta: .38, tPhi: 1.02, tR: 17 };
+let dragging = false, moved = 0, last = [0, 0], idleAt = 0;
+canvas.addEventListener('pointerdown', e => { dragging = true; moved = 0; last = [e.clientX, e.clientY]; canvas.setPointerCapture(e.pointerId); });
+canvas.addEventListener('pointermove', e => {
+  if (!dragging) return;
+  const dx = e.clientX - last[0], dy = e.clientY - last[1]; moved += Math.abs(dx) + Math.abs(dy); last = [e.clientX, e.clientY];
+  orbit.tTheta -= dx * .006; orbit.tPhi = Math.min(1.45, Math.max(.35, orbit.tPhi - dy * .005)); idleAt = performance.now();
+});
+canvas.addEventListener('pointerup', e => { dragging = false; if (moved < 6) pick(e); });
+canvas.addEventListener('wheel', e => { e.preventDefault(); orbit.tR = Math.min(30, Math.max(8, orbit.tR + e.deltaY * .01)); idleAt = performance.now(); }, { passive: false });
+
+const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+function pick(e) {
+  const r = canvas.getBoundingClientRect();
+  ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+  ray.setFromCamera(ndc, camera);
+  const hits = ray.intersectObjects(meshes, false);
+  if (hits.length) { const h = hits.find(x => x.object.userData.id !== 'vm') || hits[0]; inspect(h.object.userData.id); }
+}
+
+function resize() {
+  const w = stage.clientWidth, h = stage.clientHeight;
+  renderer.setSize(w, h, false); camera.aspect = w / h;
+  if (w < 600) orbit.tR = Math.max(orbit.tR, 27);
+  camera.updateProjectionMatrix();
+}
+new ResizeObserver(resize).observe(stage); resize();
+
+// ---------- flow + inspector ----------
+let mode = 'query', idx = 0, playing = !reduce, stepStart = performance.now(), selected = null;
+const STEP_MS = 3600;
+const stepsEl = document.getElementById('steps'), cap = document.getElementById('caption');
+const playBtn = document.getElementById('play');
+playBtn.textContent = playing ? 'Pause' : 'Play';
+
+function renderSteps() {
+  document.getElementById('steps-title').textContent = mode === 'query' ? 'Question flow' : 'Deploy path';
+  stepsEl.innerHTML = '';
+  FLOWS[mode].forEach((s, i) => {
+    const li = document.createElement('li'); li.className = 'step' + (i === idx ? ' on' : ''); li.tabIndex = 0;
+    li.innerHTML = `<span>${s.t}</span>`;
+    li.onclick = li.onkeydown = ev => { if (ev.type === 'keydown' && ev.key !== 'Enter' && ev.key !== ' ') return; ev.preventDefault?.(); go(i); };
+    stepsEl.appendChild(li);
+  });
+}
+function involved(s) { const set = new Set(); s.e.forEach(([a, b]) => { set.add(a); set.add(b); }); if (s.focus) set.add(s.focus); return set; }
+function go(i) {
+  const flow = FLOWS[mode]; idx = (i + flow.length) % flow.length; stepStart = performance.now();
+  const s = flow[idx], on = involved(s);
+  cap.innerHTML = `<b>${String(idx + 1).padStart(2, '0')} · ${s.t}</b>${s.d}`;
+  [...stepsEl.children].forEach((li, j) => li.classList.toggle('on', j === idx));
+  const col = mode === 'query' ? C.cursor : C.deploy;
+  Object.entries(edgeObj).forEach(([k, e]) => {
+    const act = s.e.some(([a, b]) => [a, b].sort().join('|') === k);
+    e.line.material.color.setHex(act ? col : C.line); e.line.material.opacity = act ? 1 : .55;
+  });
+  Object.entries(nodeObj).forEach(([id, o]) => {
+    o.mat.emissiveIntensity = on.has(id) ? (id === 'vm' ? .25 : .55) : o.base;
+    labelEls[id].classList.toggle('on', on.has(id));
+  });
+  setPackets(s, col);
+  if (!selected || !on.has(selected)) inspect([...on].find(id => id !== 'vm') || [...on][0] || 'agent', true);
+}
+function inspect(id, auto) {
+  if (!auto) selected = id;
+  const n = NODES[id], hex = '#' + n.color.toString(16).padStart(6, '0');
+  document.getElementById('inspector').innerHTML = `
+    <h2>Component</h2>
+    <span class="chip" style="color:${hex}">${n.layer}</span>
+    <h3>${n.name}</h3>
+    <p>${n.desc}</p>
+    <ul>${n.facts.map(f => `<li>${f}</li>`).join('')}</ul>
+    ${n.files.length ? `<div class="files">${n.files.map(f => `<code>${f}</code>`).join('')}</div>` : ''}`;
+  Object.entries(labelEls).forEach(([k, el]) => el.style.borderColor = k === id ? hex : '');
+}
+function setMode(m) {
+  mode = m; idx = 0; selected = null;
+  document.getElementById('m-query').setAttribute('aria-pressed', m === 'query');
+  document.getElementById('m-deploy').setAttribute('aria-pressed', m === 'deploy');
+  Object.assign(orbit, m === 'deploy' ? { tTheta: -.5, tPhi: .95 } : { tTheta: .38, tPhi: 1.02 });
+  orbit.target.set(m === 'deploy' ? -.5 : 0, .6, m === 'deploy' ? -1.8 : 0);
+  renderSteps(); go(0);
+}
+document.getElementById('m-query').onclick = () => setMode('query');
+document.getElementById('m-deploy').onclick = () => setMode('deploy');
+document.getElementById('prev').onclick = () => go(idx - 1);
+document.getElementById('next').onclick = () => go(idx + 1);
+playBtn.onclick = () => { playing = !playing; playBtn.textContent = playing ? 'Pause' : 'Play'; playBtn.setAttribute('aria-label', playing ? 'Pause' : 'Play'); stepStart = performance.now(); };
+
+// repo map
+const tree = document.getElementById('tree');
+FILES.forEach(([path, id, what]) => {
+  const n = NODES[id], hex = '#' + n.color.toString(16).padStart(6, '0');
+  const b = document.createElement('button'); b.className = 'file';
+  b.innerHTML = `<code>${path}</code><span>${what}</span><i style="color:${hex}">→ ${n.name}</i>`;
+  b.onclick = () => { inspect(id); const p = NODES[id].pos; orbit.target.set(p[0] * .6, .6, p[2] * .6); idleAt = performance.now();
+    stage.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'center' }); };
+  tree.appendChild(b);
+});
+
+// ---------- loop ----------
+const v = new THREE.Vector3();
+function place(el, p) {
+  v.copy(p).project(camera);
+  const vis = v.z < 1 && Math.abs(v.x) < 1.2 && Math.abs(v.y) < 1.2;
+  el.style.display = vis ? '' : 'none';
+  if (vis) { el.style.left = ((v.x + 1) / 2 * stage.clientWidth) + 'px'; el.style.top = ((1 - v.y) / 2 * stage.clientHeight) + 'px'; }
+}
+function tick(t) {
+  if (!dragging && !reduce && t - idleAt > 4000) orbit.tTheta += .0009;
+  orbit.theta += (orbit.tTheta - orbit.theta) * .08; orbit.phi += (orbit.tPhi - orbit.phi) * .08; orbit.r += (orbit.tR - orbit.r) * .08;
+  camera.position.set(orbit.target.x + orbit.r * Math.sin(orbit.phi) * Math.sin(orbit.theta), orbit.target.y + orbit.r * Math.cos(orbit.phi),
+    orbit.target.z + orbit.r * Math.sin(orbit.phi) * Math.cos(orbit.theta));
+  camera.lookAt(orbit.target);
+
+  const phase = ((t - stepStart) / 1400);
+  packets.forEach(p => {
+    let u = reduce ? p.off % 1 : (phase + p.off) % 1; if (p.rev) u = 1 - u;
+    p.m.position.copy(p.e.curve.getPoint(u));
+    const s = reduce ? 1 : .8 + .4 * Math.sin((phase + p.off) * Math.PI * 2); p.m.scale.setScalar(s);
+  });
+  if (playing && t - stepStart > STEP_MS) go(idx + 1);
+
+  Object.entries(NODES).forEach(([id, n]) => {
+    const p = new THREE.Vector3(...n.pos); p.y += id === 'vm' ? -.2 : n.size[1] / 2 + .15;
+    if (id === 'vm') p.set(-3.3, .1, 3.4);
+    place(labelEls[id], p);
+  });
+  frameLbls.forEach(f => place(f.d, f.pos));
+  renderer.render(scene, camera);
+  requestAnimationFrame(tick);
+}
+renderSteps(); go(0); requestAnimationFrame(tick);
+})();
+</script>
