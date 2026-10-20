@@ -42,6 +42,8 @@ CREATE INDEX IF NOT EXISTS runs_ip_time_idx ON runs (client_ip, created_at);
 
 async def init_db() -> None:
     global _pool
+    if not get_settings().database_url:
+        raise RuntimeError("DATABASE_URL is not set")
     _pool = await asyncpg.create_pool(get_settings().database_url, min_size=1, max_size=4)
     async with _pool.acquire() as c:
         await c.execute(SCHEMA)

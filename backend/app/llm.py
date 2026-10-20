@@ -10,6 +10,7 @@ import httpx
 
 from . import db
 from .config import get_settings
+from .keys import run_keys
 
 log = logging.getLogger("webinfo.llm")
 API = "https://generativelanguage.googleapis.com/v1beta"
@@ -27,11 +28,18 @@ class QuotaExhausted(RuntimeError):
     pass
 
 
+class KeyRejected(RuntimeError):
+    pass
+
+
+_shared = {"model": ""}   # the resolved model name is the same for every key
+
+
 class GeminiClient:
-    def __init__(self) -> None:
+    def __init__(self, keys: list[str] | None = None) -> None:
         s = get_settings()
-        self.keys = s.gemini_keys
-        self.model = s.gemini_model
+        self.keys = s.gemini_keys if keys is None else keys
+        self.model = s.gemini_model or _shared["model"]
         self._last_call = {k: 0.0 for k in self.keys}
         self._locks = {k: asyncio.Lock() for k in self.keys}
         self._cursor = 0
@@ -59,6 +67,8 @@ class GeminiClient:
                     break
         except Exception as e:  # noqa: BLE001
             log.warning("ListModels failed: %s", e)
+        if self.model:
+            _shared["model"] = self.model   # only a real ListModels result is shared
         self.model = self.model or "gemini-2.5-flash-lite"
         log.info("Using Gemini model: %s", self.model)
         return self.model
@@ -111,6 +121,8 @@ class GeminiClient:
                 log.warning("Gemini %s on key %s, rotating", r.status_code, db.key_id(key))
                 await asyncio.sleep(1.5 * (attempt + 1))
                 continue
+            if r.status_code in (400, 401, 403) and re.search(r"api[ _-]?key|permission|unauthenticated", r.text, re.I):
+                raise KeyRejected("The Gemini API key was rejected. Check it at aistudio.google.com/apikey.")
             r.raise_for_status()
             data = r.json()
             try:
@@ -138,7 +150,19 @@ gemini: GeminiClient | None = None
 
 
 def get_gemini() -> GeminiClient:
+    """The visitor's own client during a BYOK run, otherwise the server's (private instances only)."""
+    rk = run_keys()
+    if rk is not None:
+        if "client" not in rk:
+            rk["client"] = GeminiClient([rk["gemini"]])
+        return rk["client"]
     global gemini
     if gemini is None:
         gemini = GeminiClient()
     return gemini
+
+
+async def close_run_client() -> None:
+    rk = run_keys()
+    if rk and "client" in rk:
+        await rk.pop("client").http.aclose()

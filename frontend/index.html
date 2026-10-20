@@ -165,8 +165,25 @@ button:focus-visible,a:focus-visible,input:focus-visible,[role=button]:focus-vis
 <input id="q" name="q" maxlength="500" autocomplete="off" placeholder="Ask in plain language…" style="flex:1;min-width:220px;border:0;background:transparent;font:500 clamp(18px,2vw,24px) 'Familjen Grotesk',sans-serif;padding:14px 16px;color:var(--ink,#1B1A17)">
 <button id="runBtn" type="submit" class="btn" style="border:0;background:var(--ac,#E8452C);color:#fff;font:700 18px 'Familjen Grotesk',sans-serif;padding:14px 30px;border-radius:14px;cursor:pointer">Find it</button>
 </div></form>
+<details id="keysBox" style="margin-top:18px;border:2px solid rgba(128,128,128,.45);border-radius:18px;padding:14px 18px">
+<summary style="cursor:pointer;display:flex;gap:12px;align-items:center;flex-wrap:wrap;list-style:none;font:600 16px 'Familjen Grotesk',sans-serif">
+<span>Your API keys</span><span id="keysState" class="mono" style="font-size:11px;letter-spacing:.1em;padding:3px 9px;border-radius:99px;border:1px solid currentColor">REQUIRED</span>
+<span class="mono" style="font-size:12px;opacity:.7">Bring your own free Gemini + Tavily keys. Nobody else's keys are used.</span></summary>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin-top:16px">
+<label style="display:grid;gap:6px;font-size:14px">Gemini API key <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" class="mono" style="font-size:12px;color:var(--c1,#7FD6C2)">get a free key ↗</a>
+<input id="gKey" type="password" autocomplete="off" spellcheck="false" placeholder="AIza…" style="font:14px 'JetBrains Mono',monospace;padding:12px 14px;border-radius:12px;border:1px solid rgba(128,128,128,.5);background:var(--bg,#F1EBDD);color:var(--ink,#1B1A17)"></label>
+<label style="display:grid;gap:6px;font-size:14px">Tavily API key <a href="https://app.tavily.com" target="_blank" rel="noopener noreferrer" class="mono" style="font-size:12px;color:var(--c1,#7FD6C2)">get a free key ↗</a>
+<input id="tKey" type="password" autocomplete="off" spellcheck="false" placeholder="tvly-…" style="font:14px 'JetBrains Mono',monospace;padding:12px 14px;border-radius:12px;border:1px solid rgba(128,128,128,.5);background:var(--bg,#F1EBDD);color:var(--ink,#1B1A17)"></label>
+</div>
+<div style="display:flex;gap:18px;align-items:center;flex-wrap:wrap;margin-top:14px;font-size:14px">
+<label style="display:flex;gap:8px;align-items:center;cursor:pointer"><input id="keysRemember" type="checkbox"> Remember on this device</label>
+<button id="keysClear" type="button" class="mono" style="font-size:12px;background:none;border:1px solid rgba(128,128,128,.6);color:inherit;border-radius:99px;padding:5px 12px;cursor:pointer">Clear keys</button>
+</div>
+<p class="mono" style="font-size:12px;opacity:.75;margin:12px 0 0;line-height:1.6">Your keys stay in this browser (this tab only, unless you tick Remember) and are sent only with your own question, to call Gemini and Tavily for that one run. The server never saves them: not in its database, not in its logs.</p>
+<p id="keysHttp" hidden class="mono" style="font-size:12px;margin:8px 0 0;line-height:1.6;color:var(--ac,#E8452C)">This page isn't on HTTPS, so keys travel unencrypted. Use a free key you can delete afterwards.</p>
+</details>
 <div id="chips" style="display:flex;gap:10px;flex-wrap:wrap;margin:24px 0 10px"></div>
-<div class="mono" style="font-size:12px;opacity:.7;margin-bottom:44px">Live run on the real web: the agent searches, opens real pages in its own browser and quotes what it read. Each run is capped at a few pages to protect free API quotas.</div>
+<div class="mono" style="font-size:12px;opacity:.7;margin-bottom:44px">Live run on the real web: the agent searches, opens real pages in its own browser and quotes what it read. Each run uses your own keys and is capped at a few pages, so it stays inside the free tiers.</div>
 
 <div id="runArea" hidden>
 <div class="stack" style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.35fr);gap:28px;align-items:start">
@@ -483,12 +500,15 @@ function resetRun() {
 async function run(q) {
   if (running) return;
   q = q.trim(); if (q.length < 3) { $('q').focus(); return; }
+  const hasKeys = keysUpdate();
+  if (byok && !hasKeys) { $('keysBox').open = true; $('keysBox').scrollIntoView({ behavior: 'smooth', block: 'center' }); (!$('gKey').value ? $('gKey') : $('tKey')).focus(); return; }
   if (ctrl) ctrl.abort(); ctrl = new AbortController();
   running = true; resetRun(); $('runArea').hidden = false; $('working').hidden = false; $('runBtn').textContent = 'Working…';
   t0 = performance.now(); clearInterval(clockT); clockT = setInterval(() => $('clock').textContent = ((performance.now() - t0) / 1000).toFixed(1) + 's', 100);
   log('plan', `Question: “${q}”`);
   try {
-    const res = await fetch(`${API}/api/ask?q=${encodeURIComponent(q)}`, { signal: ctrl.signal, headers: { Accept: 'text/event-stream' } });
+    const res = await fetch(`${API}/api/ask?q=${encodeURIComponent(q)}`, { signal: ctrl.signal,
+      headers: { Accept: 'text/event-stream', ...(hasKeys ? { 'X-Gemini-Key': $('gKey').value.trim(), 'X-Tavily-Key': $('tKey').value.trim() } : {}) } });
     if (!res.ok) {
       let msg = `Server returned ${res.status}.`;
       try { msg = (await res.json()).detail || msg; } catch {}
@@ -513,6 +533,27 @@ async function run(q) {
   if (running) { queue.push(['done', {}]); pump(); }
 }
 $('askForm').addEventListener('submit', e => { e.preventDefault(); run($('q').value); });
+
+// ---------- bring your own keys: kept in this browser only ----------
+const KS = { get(k) { try { return sessionStorage.getItem('wi.' + k) || localStorage.getItem('wi.' + k) || ''; } catch { return ''; } },
+  save(k, v, remember) { try { sessionStorage.setItem('wi.' + k, v); if (remember) localStorage.setItem('wi.' + k, v); else localStorage.removeItem('wi.' + k); } catch {} },
+  clear() { try { ['gk', 'tk'].forEach(k => { sessionStorage.removeItem('wi.' + k); localStorage.removeItem('wi.' + k); }); } catch {} } };
+let byok = true;
+function keysUpdate() {
+  const ok = $('gKey').value.trim().length >= 16 && $('tKey').value.trim().length >= 16;
+  $('keysState').textContent = ok ? 'READY' : byok ? 'REQUIRED' : 'OPTIONAL';
+  $('keysState').style.color = ok ? 'var(--c1,#7FD6C2)' : byok ? 'var(--ac,#E8452C)' : 'inherit';
+  return ok;
+}
+function keysPersist() { const r = $('keysRemember').checked; KS.save('gk', $('gKey').value.trim(), r); KS.save('tk', $('tKey').value.trim(), r); keysUpdate(); }
+$('gKey').value = KS.get('gk'); $('tKey').value = KS.get('tk');
+try { $('keysRemember').checked = !!localStorage.getItem('wi.gk'); } catch {}
+['gKey', 'tKey'].forEach(id => $(id).addEventListener('input', keysPersist));
+$('keysRemember').addEventListener('change', keysPersist);
+$('keysClear').addEventListener('click', () => { KS.clear(); $('gKey').value = $('tKey').value = ''; $('keysRemember').checked = false; keysUpdate(); });
+$('keysHttp').hidden = location.protocol === 'https:' || /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
+if (!keysUpdate()) $('keysBox').open = true;
+fetch(`${API}/api/health`).then(r => r.json()).then(h => { byok = h.byok !== false; keysUpdate(); }).catch(() => {});
 
 // ---------- boot ----------
 renderOnce(); applyFeel(); runLoader();

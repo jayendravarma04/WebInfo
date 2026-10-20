@@ -9,12 +9,15 @@ from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 
 FAKE = 9100
-os.environ.update(GEMINI_API_KEYS="bad-key,good-key", TAVILY_API_KEY="tvly-test",
+# BYOK (the default): server keys are set only to prove they are never used for a visitor
+os.environ.update(GEMINI_API_KEYS="server-gemini-key-never-used", TAVILY_API_KEY="tvly-server-key-never-used",
                   ALLOW_PRIVATE_HOSTS="true", GEMINI_MIN_INTERVAL_S="0.1", ADMIN_TOKEN="test-admin")
 
 fake = FastAPI()
 ADM = {"X-Admin-Token": "test-admin"}
 calls = {"gemini": 0, "tavily": 0}
+seen_keys = set()
+VISITOR = {"X-Gemini-Key": "visitor-gemini-key-0001", "X-Tavily-Key": "tvly-visitor-key-0001"}
 def lorem(n): return "".join(f"<p>Paragraph {i}: " + "WebInfo test filler content to exercise scrolling and extraction. " * 6 + "</p>" for i in range(n))
 
 @fake.get("/site/index.html", response_class=HTMLResponse)
@@ -27,11 +30,11 @@ def pricing():
 
 @fake.post("/tavily/search")
 async def tavily(req: Request):
-    calls["tavily"] += 1
+    seen_keys.add(req.headers.get("authorization", "")); calls["tavily"] += 1
     if "quick" in (await req.json())["query"]:   # fast path: page text arrives with the search
         return {"results": [{"title": "Acme Pricing", "url": f"http://127.0.0.1:{FAKE}/site/pricing.html", "content": "pricing", "score": .9,
                              "raw_content": "# Pricing\n" + "Acme widgets text. " * 30 + "\nThe Pro plan costs $49 per month and includes 10 seats.\n" + "More text. " * 30}]}
-    assert req.headers["authorization"] == "Bearer tvly-test"
+    assert req.headers["authorization"] == "Bearer tvly-visitor-key-0001"   # the visitor's key, never the server's
     return {"results": [{"title": "Acme", "url": f"http://127.0.0.1:{FAKE}/site/index.html", "content": "Acme widgets", "score": .9},
                         {"title": "doc", "url": f"http://127.0.0.1:{FAKE}/site/x.pdf", "content": "", "score": .5}]}
 
@@ -42,8 +45,9 @@ def models():
 
 @fake.post("/gemini/models/{model}:generateContent")
 async def gen(model: str, req: Request):
-    if req.headers["x-goog-api-key"] == "bad-key":
-        return JSONResponse({"error": "quota"}, status_code=429)
+    seen_keys.add(req.headers["x-goog-api-key"])
+    if req.headers["x-goog-api-key"].startswith("bad-"):
+        return JSONResponse({"error": {"message": "API key not valid. Please pass a valid API key."}}, status_code=400)
     calls["gemini"] += 1
     body = await req.json()
     assert body["generationConfig"]["responseMimeType"] == "application/json"
@@ -73,9 +77,11 @@ async def main():
             except Exception: pass
             await asyncio.sleep(0.5)
         print("health:", (await c.get("http://127.0.0.1:8077/api/health")).json())
+        r = await c.get("http://127.0.0.1:8077/api/ask", params={"q": "No keys sent?"})
+        assert r.status_code == 401, r.status_code; print("no keys ->", r.status_code, r.json()["detail"][:60])
         for attempt in (1, 2):
             t = time.time(); events = []
-            async with c.stream("GET", "http://127.0.0.1:8077/api/ask", params={"q": "How much is Acme Pro plan?"}) as r:
+            async with c.stream("GET", "http://127.0.0.1:8077/api/ask", params={"q": "How much is Acme Pro plan?"}, headers=VISITOR) as r:
                 ev = None
                 async for line in r.aiter_lines():
                     if line.startswith("event: "): ev = line[7:]
@@ -93,7 +99,7 @@ async def main():
             else:
                 assert ans["cached"], "second run should be cached"
         t = time.time(); evs = []
-        async with c.stream("GET", "http://127.0.0.1:8077/api/ask", params={"q": "quick: price of the Acme Pro plan?"}) as r:
+        async with c.stream("GET", "http://127.0.0.1:8077/api/ask", params={"q": "quick: price of the Acme Pro plan?"}, headers=VISITOR) as r:
             ev = None
             async for line in r.aiter_lines():
                 if line.startswith("event: "): ev = line[7:]
@@ -101,10 +107,19 @@ async def main():
         ans = next(d for e, d in evs if e == "answer"); kinds = [e for e, _ in evs]
         print(f"\nfast path: {time.time()-t:.1f}s found={ans['found']} cite={ans['citations'][0]['page_id']} highlight={'highlight' in kinds}")
         assert ans["found"] and "highlight" in kinds
+        bad = {**VISITOR, "X-Gemini-Key": "bad-visitor-gemini-key-01"}; evs = []
+        async with c.stream("GET", "http://127.0.0.1:8077/api/ask", params={"q": "quick: bad key check?"}, headers=bad) as r:
+            ev = None
+            async for line in r.aiter_lines():
+                if line.startswith("event: "): ev = line[7:]
+                elif line.startswith("data: "): evs.append((ev, json.loads(line[6:])))
+        err = next(d for e, d in evs if e == "error"); print("bad key ->", err); assert err["code"] == "key"
+        assert not any("server" in k for k in seen_keys), seen_keys
+        print("keys the APIs saw:", sorted(seen_keys))
         print("\nupstream calls:", calls)
         print("usage:", (await c.get("http://127.0.0.1:8077/api/usage", headers=ADM)).json())
         print("history:", [(h["question"], h["status"], h["cached"]) for h in (await c.get("http://127.0.0.1:8077/api/history", headers=ADM)).json()])
-    assert calls == {"gemini": 3, "tavily": 2}, calls
+    assert calls == {"gemini": 3, "tavily": 3}, calls
     print("\nE2E OK")
 
 asyncio.run(main())

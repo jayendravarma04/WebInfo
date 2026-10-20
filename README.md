@@ -57,7 +57,7 @@ question ─► Postgres cache (12 h)  ── hit ──► answer, zero API cal
          ─► re-open the source, scroll to the quote, highlight ─► answer
 ```
 
-**Stack:** FastAPI · Playwright/Chromium · Gemini REST (2-key rotation) · Tavily · Postgres 16 · Docker Compose · GCP e2-micro
+**Stack:** FastAPI · Playwright/Chromium · Gemini REST · Tavily · Postgres 16 · Docker Compose · GCP e2-micro
 **Design:** Young Serif · Familjen Grotesk · JetBrains Mono, three moods (Paper, Midnight, Ocean), three type sets and three motion levels, switchable in the site footer.
 
 ---
@@ -67,7 +67,7 @@ question ─► Postgres cache (12 h)  ── hit ──► answer, zero API cal
 |---|---|
 | VM | one e2-micro · 30 GB pd-standard · Debian 12 · 2 GB swap (Google Cloud free tier) |
 | Containers | `api` (FastAPI + Chromium), `db` (Postgres 16, not exposed to the internet) |
-| Add / rotate API keys | SSH to the VM → `sudo bash /opt/webinfo/deploy/set-keys.sh` (hidden prompts, written to a `chmod 600` `.env`) |
+| API keys | Public site: none on the server, visitors bring their own. Private instance (`BYOK=false`): `sudo bash /opt/webinfo/deploy/set-keys.sh` (hidden prompts, `chmod 600` `.env`) |
 
 ## Free-tier guard rails
 | Limit | Default | Where |
@@ -84,11 +84,18 @@ Model: a blank `GEMINI_MODEL` auto-selects the newest Flash-Lite via ListModels 
 Keys are never stored in the database, only a 10-character hash fingerprint for the quota ledger.
 The browser refuses private and metadata IPs (SSRF guard), skips bot walls and error pages, honours robots.txt, and page text is treated as untrusted data in the prompt.
 
+## Bring your own keys
+Every visitor uses **their own** free API keys. Open **Your API keys** above the question box and paste a Gemini key ([aistudio.google.com/apikey](https://aistudio.google.com/apikey)) and a Tavily key ([app.tavily.com](https://app.tavily.com)). Both have free tiers.
+- Keys stay in your browser: this tab only, or this device if you tick *Remember*. *Clear keys* wipes them.
+- They are sent only with your own question, in request headers (never in the URL), and used for that one run.
+- The server never saves them: not in Postgres, not in its logs. The quota ledger keeps a 10-character hash fingerprint so the per-key caps still work.
+- With `BYOK=true` (the default) the server never uses its own keys, not even at startup. `BYOK=false` is only for a private instance that runs on your own keys.
+
 ## Security
-- No secrets live in this repo. API keys are typed into hidden prompts on the server and stored only in its git-ignored `.env` (`chmod 600`); the database keeps a 10-character hash fingerprint per key, never the key.
+- No secrets live in this repo. Visitors bring their own keys (above). A private instance's keys are typed into hidden prompts on the server and stored only in its git-ignored `.env` (`chmod 600`).
 - Postgres is reachable only inside Docker; only port 80 is open. The VM runs with no service account and no API scopes.
 - The per-IP limit uses the real connection address (`X-Forwarded-For` is ignored unless `TRUST_PROXY=true`), so it can't be dodged with a fake header. Daily and monthly caps stop at the free-tier limits.
-- `/api/usage` and `/api/history` are off unless `ADMIN_TOKEN` is set; the interactive API docs are disabled.
+- `/api/usage` and `/api/history` are off unless `ADMIN_TOKEN` is set; the interactive API docs are disabled; other websites can't call the API from a visitor's browser (no CORS by default).
 - The browser refuses private and cloud-metadata addresses, honours robots.txt, and page text is treated as untrusted input.
 - Found a problem? See [`SECURITY.md`](SECURITY.md).
 
@@ -104,7 +111,8 @@ The browser refuses private and metadata IPs (SSRF guard), skips bot walls and e
    gcloud compute ssh webinfo-vm --zone us-central1-a
    sudo git clone https://github.com/jayendravarma04/WebInfo /opt/webinfo
    cd /opt/webinfo && sudo bash deploy/install.sh
-   sudo bash deploy/set-keys.sh      # hidden prompts for Gemini ×2 + Tavily
+   # public site: done, visitors bring their own keys. Private instance only: set BYOK=false in .env, then
+   # sudo bash deploy/set-keys.sh    # hidden prompts for your Gemini + Tavily keys
    ```
 3. Open `http://<EXTERNAL_IP>/`. Updates: `sudo bash deploy/update.sh`.
 

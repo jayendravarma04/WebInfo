@@ -5,6 +5,7 @@ import httpx
 
 from . import db
 from .config import get_settings
+from .keys import run_keys
 
 TAVILY_URL = "https://api.tavily.com/search"
 
@@ -19,16 +20,18 @@ async def web_search(query: str) -> list[dict]:
     ckey = db.make_key("tavily-raw", query.lower().strip(), str(s.tavily_max_results))
     if (hit := await db.cache_get(ckey)) is not None:
         return hit
-    if not s.tavily_api_key:
-        raise SearchUnavailable("TAVILY_API_KEY not configured")
+    rk = run_keys()
+    key = rk["tavily"] if rk else ("" if s.byok else s.tavily_api_key)   # never fall back to the server key in BYOK mode
+    if not key:
+        raise SearchUnavailable("No Tavily API key")
     month = date.today().isoformat()[:7]
-    if not await db.try_consume("tavily", db.key_id(s.tavily_api_key), month, s.tavily_monthly_cap):
+    if not await db.try_consume("tavily", db.key_id(key), month, s.tavily_monthly_cap):
         raise SearchUnavailable("Tavily monthly safety cap reached")
 
     async with httpx.AsyncClient(timeout=25) as http:
         r = await http.post(
             TAVILY_URL,
-            headers={"Authorization": f"Bearer {s.tavily_api_key}"},
+            headers={"Authorization": f"Bearer {key}"},
             json={
                 "query": query,
                 "search_depth": "basic",
@@ -37,7 +40,9 @@ async def web_search(query: str) -> list[dict]:
                 "include_raw_content": True,   # page text comes with the search: same 1 credit
             },
         )
-    if r.status_code in (401, 403, 429, 432, 433):
+    if r.status_code in (401, 403):
+        raise SearchUnavailable("The Tavily API key was rejected. Check it at app.tavily.com.")
+    if r.status_code in (429, 432, 433):
         raise SearchUnavailable(f"Tavily {r.status_code}: {r.text[:200]}")
     r.raise_for_status()
     results = [

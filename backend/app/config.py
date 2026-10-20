@@ -6,6 +6,11 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
+    # --- Keys ---
+    # True (public default): every visitor must send their own Gemini + Tavily keys; the server's keys
+    # below are never used for them. Set BYOK=false only for a private instance that uses your own keys.
+    byok: bool = True
+
     # --- Gemini ---
     # Comma-separated. With 2 keys the agent rotates when one hits a 429.
     gemini_api_keys: str = ""
@@ -30,8 +35,8 @@ class Settings(BaseSettings):
     per_ip_hourly_limit: int = 15
 
     # --- Infra ---
-    database_url: str = "postgresql://webinfo:webinfo@db:5432/webinfo"
-    cors_origins: str = "*"
+    database_url: str = ""                   # set by docker-compose from POSTGRES_PASSWORD in .env
+    cors_origins: str = ""                   # blank = same-origin only (the site itself); comma-separated to allow others
     allow_private_hosts: bool = False        # tests only — keeps the agent off the GCP metadata server
     trust_proxy: bool = False                # only behind your own reverse proxy: honour X-Forwarded-For
     admin_token: str = ""                    # blank = /api/usage and /api/history are switched off
