@@ -21,7 +21,7 @@ pulls out the exact fact, and shows you where it found it, with a live view of i
 <a href="docs/architecture.html"><img src="docs/architecture.webp" alt="Cinematic 3D film of the WebInfo architecture" width="100%"></a>
 </div>
 
-A glowing question capsule travels a lit track past seven stations, one locked shot each:
+Seven stations on one lit track, one fixed camera per station and straight cuts between them, no camera moves or transitions. The question capsule hovers over whichever station is working on it:
 
 | | Station | What happens | Code |
 |---|---|---|---|
@@ -33,7 +33,7 @@ A glowing question capsule travels a lit track past seven stations, one locked s
 | 06 | **Verify** (highlighted page) | The agent scrolls to the quote and highlights it on the real page | `backend/app/browser.py` |
 | 07 | **Answer** (answer card + database) | The cited answer arrives in about 5 s and is cached in Postgres | `backend/app/db.py` |
 
-Prefer video? [`docs/architecture.mp4`](docs/architecture.mp4). Open [`docs/architecture.html`](docs/architecture.html) in a browser for the interactive cut: scrub the timeline, drag to look around (double-click returns to the film), and click any repo file to jump to its shot.
+Full quality: [`docs/architecture.mp4`](docs/architecture.mp4) is the 4K (3840×2160, 24 fps) master; the loop above is a lighter preview. Open [`docs/architecture.html`](docs/architecture.html) in a browser for the interactive cut: scrub the timeline, drag to look around (double-click returns to the film), and click any repo file to jump to its shot.
 
 ---
 
@@ -125,6 +125,6 @@ DATABASE_URL=postgresql://... python -m tests.ui_preview   # the full site on :8
 | `backend/app/search.py` | Tavily search with cache and monthly cap |
 | `backend/app/db.py` | Postgres schema, cache, quota ledger, run history |
 | `backend/app/config.py` | Every limit, set from `.env` |
-| `docs/architecture.html` | The cinematic 3D architecture film (three.js, bloom, particle streams) |
+| `docs/architecture.html` | The 3D architecture film (three.js: studio reflections, soft shadows, MSAA, 4K capture mode) |
 | `docs/EVENTS.md` | Server-sent event contract the UI renders |
 | `deploy/` | `create-vm.sh`, `startup.sh`, `install.sh`, `set-keys.sh`, `update.sh` |
