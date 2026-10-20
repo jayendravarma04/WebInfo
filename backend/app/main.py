@@ -22,7 +22,7 @@ log = logging.getLogger("webinfo")
 _here = Path(__file__).resolve()
 FRONTEND = next((d for d in (_here.parents[1] / "frontend", _here.parents[2] / "frontend") if d.exists()),
                 _here.parents[1] / "frontend")
-_run_slots = asyncio.Semaphore(2)   # max concurrent questions on a tiny VM
+_run_slots = asyncio.Semaphore(1)   # one question at a time: the browser tab ids (P1, P2…) are shared, and an e2-micro has one tab to spare
 
 
 @asynccontextmanager

@@ -21,17 +21,19 @@ pulls out the exact fact, and shows you where it found it, with a live view of i
 <a href="docs/architecture.html"><img src="docs/architecture.webp" alt="Cinematic 3D film of the WebInfo architecture" width="100%"></a>
 </div>
 
-| | Chapter | What happens | Code |
-|---|---|---|---|
-| 01 | **Ask** | The browser opens one live stream: `GET /api/ask` | `frontend/index.html`, `backend/app/main.py` |
-| 02 | **Search** | Tavily finds candidate pages (1 credit, cached 24 h) | `backend/app/search.py` |
-| 03 | **Navigate** | Headless Chromium opens real pages, one tab at a time, robots rules respected; every screen streams back with the cursor | `backend/app/browser.py` |
-| 04 | **Extract** | One Gemini Flash-Lite call reads numbered page blocks and returns JSON with verbatim quotes | `backend/app/llm.py`, `backend/app/agent.py` |
-| 05 | **Verify** | The agent re-opens the source, scrolls to the quote and highlights the passage | `backend/app/browser.py` |
-| 06 | **Answer** | A cited answer streams to the screen and is cached in Postgres, so repeats cost nothing | `backend/app/db.py` |
-| 07 | **Deploy** | GitHub → Cloud Shell → a free-tier e2-micro running Docker | `deploy/*`, `docker-compose.yml` |
+A glowing question capsule travels a lit track past seven stations, one locked shot each:
 
-Prefer video? [`docs/architecture.mp4`](docs/architecture.mp4). Open [`docs/architecture.html`](docs/architecture.html) in a browser for the interactive cut: scrub the timeline, drag to fly the camera, and click any repo file to jump to its shot.
+| | Station | What happens | Code |
+|---|---|---|---|
+| 01 | **Ask** (laptop) | You type a question; the site opens one live stream: `GET /api/ask` | `frontend/index.html` |
+| 02 | **API** (server rack) | FastAPI checks the cache, starts the agent, streams every step back | `backend/app/main.py` |
+| 03 | **Search** (magnifier) | Tavily returns pages *and their text* for 1 credit; off-topic results are dropped | `backend/app/search.py`, `agent.py` |
+| 04 | **Browse** (browser windows) | Headless Chromium opens the top page; you watch it live with the gaming cursor | `backend/app/browser.py` |
+| 05 | **Read** (document scan) | One Gemini Flash-Lite call extracts the exact fact with a word-for-word quote | `backend/app/llm.py`, `agent.py` |
+| 06 | **Verify** (highlighted page) | The agent scrolls to the quote and highlights it on the real page | `backend/app/browser.py` |
+| 07 | **Answer** (answer card + database) | The cited answer arrives in about 5 s and is cached in Postgres | `backend/app/db.py` |
+
+Prefer video? [`docs/architecture.mp4`](docs/architecture.mp4). Open [`docs/architecture.html`](docs/architecture.html) in a browser for the interactive cut: scrub the timeline, drag to look around (double-click returns to the film), and click any repo file to jump to its shot.
 
 ---
 

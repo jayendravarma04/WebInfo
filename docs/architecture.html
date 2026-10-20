@@ -4,122 +4,67 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Familjen+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
 <style>
-/* Layout: a letterboxed cinema screen (the film) over a quiet credits roll (repo map). Single committed Midnight look. */
-:root{color-scheme:dark;
-  --bg:#16150F;--ink:#F1EBDD;--ac:#FF6A4A;--bl:#9BA9FF;--c1:#7FD6C2;--c3:#A9B89A;--c4:#8fa0ff;--muted:#8a8473;--line:#2c2a22;
+/* Layout: a clean studio "assembly line" film (one station per locked shot, caption panel on the left), then the repo map. Committed Midnight look. */
+:root{color-scheme:dark;--bg:#16150F;--ink:#F1EBDD;--ac:#FF6A4A;--bl:#9BA9FF;--c1:#7FD6C2;--gold:#F2B544;--muted:#8a8473;--line:#2c2a22;
   --disp:'Young Serif',Georgia,serif;--body:'Familjen Grotesk',system-ui,sans-serif;--mono:'JetBrains Mono',ui-monospace,Menlo,monospace}
-html,body{background:var(--bg);color:var(--ink)}
-body{font:16px/1.5 var(--body);margin:0}
-*{box-sizing:border-box}
+html,body{background:var(--bg);color:var(--ink)}body{margin:0;font:16px/1.5 var(--body)}*{box-sizing:border-box}
 .wrap{max-width:1400px;margin:0 auto;padding-block:22px 60px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:22px}
-.gold{font-family:var(--disp);font-style:italic;background:linear-gradient(135deg,#FFE29A 0%,#F2B544 38%,#C9831F 62%,#F6CF7A 100%);-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent}
-header{display:flex;justify-content:space-between;align-items:end;gap:14px;flex-wrap:wrap}
-.brand{display:flex;align-items:baseline;gap:10px;font-family:var(--disp);font-size:clamp(26px,3.4vw,40px);line-height:1;text-wrap:balance}
-.brand .gold{font-size:1.1em;padding-right:4px}
-.brand em{font-style:italic;color:var(--ac)}
-.sub{color:var(--muted);font:12px var(--mono);letter-spacing:.14em;text-transform:uppercase}
-
-/* ---- the screen ---- */
-.screen{position:relative;width:100%;max-width:100%;aspect-ratio:16/9;max-height:82vh;margin-inline:auto;background:#07070a;border-radius:14px;overflow:hidden;touch-action:none;box-shadow:0 30px 80px rgba(0,0,0,.55),0 0 0 1px var(--line)}
-.screen canvas{display:block;width:100%;height:100%;cursor:grab}.screen canvas:active{cursor:grabbing}
-.bars:before,.bars:after{content:"";position:absolute;left:0;right:0;height:var(--bar,9%);background:#000;z-index:6;transition:height 1.2s cubic-bezier(.76,0,.2,1);pointer-events:none}
-.bars:before{top:0}.bars:after{bottom:0}
-.grain{position:absolute;inset:-50%;z-index:5;pointer-events:none;opacity:.09;mix-blend-mode:overlay;
-  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>")}
-.labels{position:absolute;inset:0;z-index:4;pointer-events:none;overflow:hidden}
-.tag{position:absolute;transform:translate(-50%,-100%);white-space:nowrap;font:500 11px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--ink);padding:4px 9px 4px 20px;border-radius:99px;background:rgba(10,10,12,.62);border:1px solid rgba(241,235,221,.16);backdrop-filter:blur(4px);transition:opacity .5s,border-color .4s,color .4s}
-.tag:before{content:"";position:absolute;left:8px;top:50%;width:6px;height:6px;margin-top:-3px;border-radius:50%;background:var(--c,var(--ink));box-shadow:0 0 8px var(--c,var(--ink))}
-.tag.hot{border-color:var(--c);color:#fff}
-.tag.dim{opacity:0}.tag.ghost{opacity:0}
-.chap{position:absolute;left:5.5%;bottom:calc(var(--bar,9%) + 6%);z-index:7;max-width:min(560px,70%);pointer-events:none}
-.chap .eb{font:500 clamp(10px,1vw,13px) var(--mono);letter-spacing:.2em;text-transform:uppercase;color:var(--ac);display:flex;gap:10px;align-items:center}
-.chap .eb:before{content:"";width:34px;height:2px;background:var(--ac)}
-.chap h2{font:400 clamp(26px,4.4vw,64px)/1 var(--disp);margin:.25em 0 .2em;letter-spacing:-.02em;text-shadow:0 4px 30px rgba(0,0,0,.6)}
-.chap h2 i{color:var(--ac)}
-.chap p{margin:0;font-size:clamp(12px,1.25vw,17px);color:#d8d1c0;max-width:36em;text-shadow:0 2px 12px rgba(0,0,0,.8)}
-.chap>*{transition:opacity .6s,transform .8s cubic-bezier(.2,.7,.2,1)}
-.chap.out>*{opacity:0;transform:translateY(14px)}
-.title{position:absolute;inset:0;z-index:7;display:grid;place-items:center;text-align:center;pointer-events:none;transition:opacity .9s}
-.title.out{opacity:0}
-.title .big{font:400 clamp(44px,9vw,140px)/1 var(--disp);letter-spacing:-.03em;display:flex;align-items:center;gap:.18em;justify-content:center}
-.title .big .gold{font-size:.95em}
-.title .tl{font:500 clamp(10px,1.1vw,14px) var(--mono);letter-spacing:.3em;text-transform:uppercase;color:var(--c1);margin-top:1.2em}
-.title .ln{font:400 clamp(18px,2.4vw,34px) var(--disp);margin-top:.6em}
-.title .ln i{color:var(--ac)}.title .ln b{font-weight:400;color:var(--bl);font-style:italic}
-.hud{position:absolute;left:0;right:0;bottom:0;z-index:8;height:var(--bar,9%);display:flex;align-items:center;gap:12px;padding:0 2.2%;font:11px var(--mono);color:var(--muted)}
-.hud button{font:500 11px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--ink);background:transparent;border:1px solid #3a382e;border-radius:99px;padding:5px 12px;cursor:pointer}
-.hud button:hover{border-color:var(--ink)}
-.hud button:focus-visible,.file:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
-.scrub{flex:1;position:relative;height:3px;background:#2c2a22;border-radius:3px;cursor:pointer;min-width:60px}
-.scrub i{position:absolute;left:0;top:0;bottom:0;background:var(--ac);border-radius:3px}
+.gold{font-family:var(--disp);font-style:italic;background:linear-gradient(135deg,#FFE29A,#F2B544 38%,#C9831F 62%,#F6CF7A);-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent}
+.brand{font:400 clamp(26px,3.4vw,40px)/1 var(--disp);display:flex;gap:10px;align-items:baseline}.brand em{color:var(--ac)}
+.sub{color:var(--muted);font:12px var(--mono);letter-spacing:.14em;text-transform:uppercase;margin-top:6px}
+.screen{position:relative;width:100%;max-width:100%;aspect-ratio:16/9;max-height:82vh;margin-inline:auto;background:#0b0b0d;border-radius:14px;overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,.55),0 0 0 1px var(--line);touch-action:none}
+.screen canvas{display:block;width:100%;height:100%;cursor:grab}
+.cap{position:absolute;left:4%;top:50%;transform:translateY(-50%);width:min(40%,520px);z-index:5;pointer-events:none;padding:clamp(14px,2vw,28px);border-radius:16px;background:rgba(11,11,13,.78);border:1px solid rgba(241,235,221,.12);backdrop-filter:blur(6px)}
+.cap .no{font:500 clamp(10px,1vw,13px) var(--mono);letter-spacing:.22em;text-transform:uppercase;color:var(--ac);display:flex;gap:10px;align-items:center}
+.cap .no:before{content:"";width:28px;height:2px;background:var(--ac)}
+.cap h2{font:400 clamp(22px,3.3vw,48px)/1.04 var(--disp);margin:.35em 0 .3em;letter-spacing:-.02em;text-wrap:balance}
+.cap h2 i{color:var(--ac)}
+.cap p{margin:0;font-size:clamp(12px,1.3vw,18px);line-height:1.45;color:#e3dccb}
+.cap .file{display:inline-block;margin-top:.8em;font:12px var(--mono);color:var(--c1);background:rgba(127,214,194,.08);border:1px solid rgba(127,214,194,.25);padding:3px 8px;border-radius:6px}
+.title{position:absolute;inset:0;z-index:5;display:grid;place-items:center;text-align:center;pointer-events:none;background:radial-gradient(60% 50% at 50% 45%,rgba(11,11,13,.55),transparent)}
+.title .big{font:400 clamp(44px,8.5vw,128px)/1 var(--disp);letter-spacing:-.03em;display:flex;gap:.16em;justify-content:center;align-items:center}
+.title .tl{font:500 clamp(10px,1.1vw,14px) var(--mono);letter-spacing:.3em;text-transform:uppercase;color:var(--c1);margin-top:1em}
+.title .ln{font:400 clamp(18px,2.4vw,34px) var(--disp);margin-top:.5em}.title .ln i{color:var(--ac)}.title .ln b{font-weight:400;color:var(--bl);font-style:italic}
+.fade{position:absolute;inset:0;background:#000;z-index:6;pointer-events:none;opacity:0}
+.bar{position:absolute;left:0;right:0;bottom:0;z-index:7;display:flex;align-items:center;gap:12px;padding:10px 2.2%;font:11px var(--mono);color:var(--muted);background:linear-gradient(transparent,rgba(0,0,0,.6))}
+.bar button{font:500 11px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--ink);background:rgba(0,0,0,.4);border:1px solid #3a382e;border-radius:99px;padding:5px 12px;cursor:pointer}
+.bar button:focus-visible,.f:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
+.scrub{flex:1;position:relative;height:3px;background:#2c2a22;border-radius:3px;cursor:pointer;min-width:60px}.scrub i{position:absolute;left:0;top:0;bottom:0;background:var(--ac);border-radius:3px}
 .scrub b{position:absolute;top:-3px;width:2px;height:9px;background:#5a5648}
-.tc{font-variant-numeric:tabular-nums;min-width:68px;text-align:right}
-.top{position:absolute;left:0;right:0;top:0;z-index:8;height:var(--bar,9%);display:flex;align-items:center;justify-content:space-between;padding:0 2.2%;font:11px var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
-.top .gold{font-size:18px;letter-spacing:0;text-transform:none}
-.cur{position:absolute;left:0;top:0;width:0;height:0;z-index:5;pointer-events:none;opacity:0;transition:opacity .4s}
-.cur .ring{position:absolute;left:-15px;top:-15px;width:30px;height:30px;border-radius:50%;border:2px solid var(--ac);box-shadow:0 0 16px var(--ac),inset 0 0 10px rgba(255,106,74,.5);transform:scale(var(--br,1))}
+.tc{font-variant-numeric:tabular-nums;min-width:86px;text-align:right}
+.cur{position:absolute;left:0;top:0;width:0;height:0;z-index:4;pointer-events:none;opacity:0}
+.cur .ring{position:absolute;left:-15px;top:-15px;width:30px;height:30px;border-radius:50%;border:2px solid var(--ac);box-shadow:0 0 14px var(--ac);transform:scale(var(--br,1))}
 .cur .ticks{position:absolute;left:-22px;top:-22px;width:44px;height:44px;transform:rotate(var(--rot,0deg))}
-.cur .ticks i{position:absolute;background:var(--ac);border-radius:2px;box-shadow:0 0 8px var(--ac)}
+.cur .ticks i{position:absolute;background:var(--ac);border-radius:2px}
 .cur .ticks i:nth-child(1){left:20px;top:0;width:4px;height:8px}.cur .ticks i:nth-child(2){left:20px;bottom:0;width:4px;height:8px}
 .cur .ticks i:nth-child(3){top:20px;left:0;width:8px;height:4px}.cur .ticks i:nth-child(4){top:20px;right:0;width:8px;height:4px}
-.cur .dot{position:absolute;left:-4px;top:-4px;width:8px;height:8px;border-radius:50%;background:#fff;box-shadow:0 0 12px #fff,0 0 24px var(--ac)}
-@media (max-width:640px){.tag{font-size:9px;padding:3px 7px 3px 16px}.tag:before{left:6px}.chap p{display:none}.hud .hide{display:none}}
-
-/* ---- credits: repo map ---- */
-.credits{display:grid;gap:14px}
-.credits h3{font:400 clamp(24px,3vw,38px)/1.1 var(--disp);margin:8px 0 0;text-wrap:balance}
-.credits h3 i{color:var(--ac)}
+.cur .dot{position:absolute;left:-4px;top:-4px;width:8px;height:8px;border-radius:50%;background:#fff;box-shadow:0 0 10px #fff}
+@media (max-width:640px){.cap{width:52%;padding:10px}.cap p,.cap .file{display:none}}
+.credits h3{font:400 clamp(24px,3vw,38px)/1.1 var(--disp);margin:8px 0 12px}.credits h3 i{color:var(--ac)}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
-.file{text-align:left;display:grid;gap:3px;background:#1d1c16;border:1px solid var(--line);border-radius:12px;padding:12px 14px;color:var(--ink);cursor:pointer;font:inherit;min-width:0}
-.file:hover{border-color:#5a5648}
-.file code{font:500 12.5px var(--mono);overflow-wrap:anywhere}
-.file span{font-size:13.5px;color:#cfc8b6}
-.file em{font:500 10.5px var(--mono);font-style:normal;letter-spacing:.1em;text-transform:uppercase}
-@media (prefers-reduced-motion:reduce){.chap>*,.title,.tag{transition:none}}
-.cap *,.cap *:before,.cap *:after,.chap>*,.title{transition:none!important}
+.f{text-align:left;display:grid;gap:3px;background:#1d1c16;border:1px solid var(--line);border-radius:12px;padding:12px 14px;color:var(--ink);cursor:pointer;font:inherit;min-width:0}
+.f:hover{border-color:#5a5648}.f code{font:500 12.5px var(--mono);overflow-wrap:anywhere}.f span{font-size:13.5px;color:#cfc8b6}.f em{font:500 10.5px var(--mono);font-style:normal;letter-spacing:.1em;text-transform:uppercase;color:var(--c1)}
 </style>
 
 <div class="wrap">
-  <header>
-    <div>
-      <div class="brand"><span class="gold">JR</span><span>WebInfo <em>Architecture</em></span></div>
-      <div class="sub">One question, start to finish · drag to fly · click the timeline</div>
-    </div>
-  </header>
-
-  <div class="screen bars" id="screen">
-    <canvas id="c" aria-label="Cinematic 3D film of the WebInfo architecture"></canvas>
-    <div class="labels" id="labels"></div>
+  <header><div class="brand"><span class="gold">JR</span><span>WebInfo <em>Architecture</em></span></div>
+  <div class="sub">One question, seven stations · click the timeline · drag to look around</div></header>
+  <div class="screen" id="screen">
+    <canvas id="c" aria-label="3D film of how WebInfo answers a question"></canvas>
     <div class="cur" id="cur"><div class="ticks"><i></i><i></i><i></i><i></i></div><div class="ring"></div><div class="dot"></div></div>
-    <div class="grain" id="grain"></div>
-    <div id="fade" style="position:absolute;inset:0;background:#000;z-index:6;pointer-events:none;opacity:0"></div>
-    <div class="title" id="title">
-      <div>
-        <div class="big"><span class="gold">JR</span><span>WebInfo</span></div>
-        <div class="tl" id="tl">How one question becomes a cited answer</div>
-        <div class="ln" id="ln" hidden>Ask the <i>web.</i> Get the <b>answer.</b></div>
-      </div>
-    </div>
-    <div class="chap out" id="chap"><div class="eb" id="eb"></div><h2 id="ch"></h2><p id="cp"></p></div>
-    <div class="top"><span><span class="gold">JR</span>&nbsp; WebInfo</span><span class="hide" id="loc">us-central1 · e2-micro</span></div>
-    <div class="hud">
-      <button id="play" type="button">Pause</button>
-      <button id="free" type="button" class="hide">Free camera</button>
-      <div class="scrub" id="scrub"><i id="prog"></i></div>
-      <span class="tc" id="tc">00:00</span>
-    </div>
+    <div class="cap" id="cap"><div class="no" id="no"></div><h2 id="h"></h2><p id="p"></p><span class="file" id="fl"></span></div>
+    <div class="title" id="title"><div><div class="big"><span class="gold">JR</span><span>WebInfo</span></div>
+      <div class="tl" id="tl">How one question becomes a cited answer</div>
+      <div class="ln" id="ln">Ask the <i>web.</i> Get the <b>answer.</b></div></div></div>
+    <div class="fade" id="fade"></div>
+    <div class="bar"><button id="play" type="button">Pause</button><div class="scrub" id="scrub"><i id="prog"></i></div><span class="tc" id="tc"></span></div>
   </div>
-
-  <section class="credits">
-    <h3>Every file in the repo, <i>and the shot it appears in.</i></h3>
-    <div class="grid" id="grid"></div>
-  </section>
+  <section class="credits"><h3>Every file in the repo, <i>and the station it powers.</i></h3><div class="grid" id="grid"></div></section>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/VignetteShader.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
@@ -127,320 +72,199 @@ header{display:flex;justify-content:space-between;align-items:end;gap:14px;flex-
 <script>
 (async () => {
 const CAPTURE = location.hash === '#capture';
-if (CAPTURE) document.documentElement.classList.add('cap');
-const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
-const COL = { bg: 0x07070a, ink: 0xF1EBDD, ac: 0xFF6A4A, bl: 0x9BA9FF, c1: 0x7FD6C2, c3: 0xA9B89A, c4: 0x8fa0ff, gold: 0xF2B544, vio: 0xC58CFF };
-const hex = c => '#' + c.toString(16).padStart(6, '0');
-try { await Promise.race([Promise.all(['30px "Young Serif"', 'italic 30px "Young Serif"', '22px "Familjen Grotesk"', 'bold 22px "Familjen Grotesk"', '12px "JetBrains Mono"'].map(f => document.fonts.load(f))).then(() => document.fonts.ready), new Promise(r => setTimeout(r, 3000))]); } catch {}
+const C = { ac: 0xFF6A4A, bl: 0x9BA9FF, c1: 0x7FD6C2, gold: 0xF2B544, vio: 0xB98CFF, ink: 0xF1EBDD };
+const $ = id => document.getElementById(id);
+try { await Promise.race([Promise.all(['40px "Young Serif"', 'italic 40px "Young Serif"', '24px "Familjen Grotesk"', 'bold 24px "Familjen Grotesk"', '16px "JetBrains Mono"'].map(f => document.fonts.load(f))), new Promise(r => setTimeout(r, 3000))]); } catch {}
 
-// ---------------- renderer ----------------
-const screen = document.getElementById('screen'), canvas = document.getElementById('c');
+// ---------- renderer: studio lighting, soft shadows, supersampled ----------
+const screen = $('screen'), canvas = $('c');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: CAPTURE });
 renderer.setPixelRatio(CAPTURE ? 2 : Math.max(1.5, Math.min(devicePixelRatio, 2)));
-renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
-renderer.outputEncoding = THREE.sRGBEncoding;
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(COL.bg);
-scene.fog = new THREE.FogExp2(0x07070a, 0.032);
-const camera = new THREE.PerspectiveCamera(38, 16 / 9, .1, 200);
-scene.add(new THREE.AmbientLight(0x404058, .9));
-const key = new THREE.PointLight(COL.ac, 2.2, 30, 2); key.position.set(1, 5, 3); scene.add(key);
-const rim = new THREE.PointLight(COL.bl, 1.6, 40, 2); rim.position.set(-8, 6, -6); scene.add(rim);
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = .95; renderer.outputEncoding = THREE.sRGBEncoding;
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+const BG = new THREE.Color(0x0b0b0d).convertSRGBToLinear();   // colour-space correct, or it renders grey
+const scene = new THREE.Scene(); scene.background = BG; scene.fog = new THREE.Fog(BG, 16, 44);
+const camera = new THREE.PerspectiveCamera(35, 16 / 9, .1, 200);
+scene.add(new THREE.HemisphereLight(0xdfe4ff, 0x1a1712, .3));
+const sun = new THREE.DirectionalLight(0xfff3e0, 1.25); sun.position.set(-6, 14, 10); sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, { left: -22, right: 22, top: 10, bottom: -10, near: 1, far: 50 }); sun.shadow.bias = -.0004; sun.shadow.radius = 4;
+scene.add(sun);
+const rim = new THREE.DirectionalLight(0x9BA9FF, .5); rim.position.set(8, 6, -10); scene.add(rim);
+const composer = new THREE.EffectComposer(renderer); composer.addPass(new THREE.RenderPass(scene, camera));
+composer.addPass(new THREE.UnrealBloomPass(new THREE.Vector2(960, 540), .6, .35, .9)); // only true light sources glow
 
-const composer = new THREE.EffectComposer(renderer);
-composer.addPass(new THREE.RenderPass(scene, camera));
-const bloom = new THREE.UnrealBloomPass(new THREE.Vector2(960, 540), 1.3, .6, .55);
-composer.addPass(bloom);
-const vig = new THREE.ShaderPass(THREE.VignetteShader); vig.uniforms.offset.value = 1.05; vig.uniforms.darkness.value = 1.25;
-composer.addPass(vig);
-
-// ---------------- helpers ----------------
-const glowTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d');
-  const r = g.createRadialGradient(32, 32, 0, 32, 32, 32); r.addColorStop(0, 'rgba(255,255,255,1)'); r.addColorStop(.25, 'rgba(255,255,255,.75)'); r.addColorStop(1, 'rgba(255,255,255,0)');
-  g.fillStyle = r; g.fillRect(0, 0, 64, 64); return new THREE.CanvasTexture(c); })();
-function edgeGlow(geo, color, op = .9) { return new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({ color, transparent: true, opacity: op })); }
-function glass(color, op = .16) { return new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: .25, roughness: .15, metalness: .4, transparent: true, opacity: op, depthWrite: false }); }
-function halo(color, size, op = .55) { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color, transparent: true, opacity: op, blending: THREE.AdditiveBlending, depthWrite: false })); s.scale.set(size, size, 1); return s; }
-function at(o, v) { o.position.copy(v); return o; }
-function canvasTex(w, h, draw) { const c = document.createElement('canvas'); c.width = w; c.height = h; draw(c.getContext('2d'), w, h); const t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding; t.anisotropy = 4; return t; }
-
-// ---------------- world ----------------
-// starfield
-{ const n = 900, pos = new Float32Array(n * 3), col = new Float32Array(n * 3); const cA = new THREE.Color(COL.ink), cB = new THREE.Color(COL.bl);
-  for (let i = 0; i < n; i++) { const r = 40 + Math.random() * 60, th = Math.random() * Math.PI * 2, ph = Math.acos(2 * Math.random() - 1) * .55;
-    pos.set([r * Math.sin(ph) * Math.cos(th), 6 + r * Math.cos(ph) * .6, r * Math.sin(ph) * Math.sin(th)], i * 3);
-    const c = cA.clone().lerp(cB, Math.random()); col.set([c.r, c.g, c.b], i * 3); }
-  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.BufferAttribute(col, 3));
-  scene.add(new THREE.Points(g, new THREE.PointsMaterial({ size: .18, map: glowTex, vertexColors: true, transparent: true, opacity: .8, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }))); }
-// dust motes drifting near the floor
-const dust = (() => { const n = 260, pos = new Float32Array(n * 3), seed = new Float32Array(n);
-  for (let i = 0; i < n; i++) { pos.set([(Math.random() - .5) * 34, Math.random() * 6, (Math.random() - .5) * 26], i * 3); seed[i] = Math.random() * 100; }
-  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-  const p = new THREE.Points(g, new THREE.PointsMaterial({ size: .07, map: glowTex, color: COL.gold, transparent: true, opacity: .55, depthWrite: false, blending: THREE.AdditiveBlending }));
-  scene.add(p); return { p, seed, base: pos.slice() }; })();
-// floor: glowing grid that fades with distance
-{ const tex = canvasTex(512, 512, (g, w, h) => { g.fillStyle = '#07070a'; g.fillRect(0, 0, w, h); g.strokeStyle = 'rgba(155,169,255,.22)'; g.lineWidth = 2;
-    for (let i = 0; i <= 8; i++) { g.beginPath(); g.moveTo(i * 64, 0); g.lineTo(i * 64, h); g.stroke(); g.beginPath(); g.moveTo(0, i * 64); g.lineTo(w, i * 64); g.stroke(); } });
-  tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.repeat.set(30, 30);
-  const floor = new THREE.Mesh(new THREE.PlaneGeometry(120, 120), new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: .9 }));
-  floor.rotation.x = -Math.PI / 2; floor.position.y = -.35; scene.add(floor); }
-
-const nodes = {};
-function tagNode(id, name, sub, color, pos, obj) { nodes[id] = { name, sub, color, pos: new THREE.Vector3(...pos), obj }; }
-
-// VM platform: hexagonal slab with glowing rim and hex texture
-const vm = new THREE.Group(); scene.add(vm);
-{ const hexTex = canvasTex(512, 512, (g, w, h) => { g.fillStyle = '#0b0c14'; g.fillRect(0, 0, w, h); g.strokeStyle = 'rgba(155,169,255,.35)'; g.lineWidth = 1.5; const R = 22;
-    for (let y = 0, row = 0; y < h + R; y += R * 1.5, row++) for (let x = (row % 2) * R * .866; x < w + R; x += R * 1.732) { g.beginPath(); for (let k = 0; k < 6; k++) { const a = Math.PI / 3 * k + Math.PI / 6; g.lineTo(x + R * Math.cos(a), y + R * Math.sin(a)); } g.closePath(); g.stroke(); } });
-  const geo = new THREE.CylinderGeometry(5.4, 5.6, .32, 6);
-  const slab = new THREE.Mesh(geo, [new THREE.MeshStandardMaterial({ color: 0x0b0c14, emissive: COL.bl, emissiveIntensity: .12, roughness: .4, metalness: .6 }),
-    new THREE.MeshStandardMaterial({ map: hexTex, emissive: COL.bl, emissiveMap: hexTex, emissiveIntensity: .9, roughness: .5 }), new THREE.MeshBasicMaterial({ color: 0x050508 })]);
-  slab.rotation.y = Math.PI / 6; vm.add(slab);
-  const rimL = edgeGlow(geo, COL.bl, 1); rimL.rotation.y = Math.PI / 6; vm.add(rimL);
-  const ring = new THREE.Mesh(new THREE.TorusGeometry(5.9, .025, 8, 120), new THREE.MeshBasicMaterial({ color: COL.bl })); ring.rotation.x = Math.PI / 2; ring.position.y = -.12; vm.add(ring);
-  tagNode('vm', 'GCP e2-micro', 'Docker · 1 GB + swap', COL.bl, [-3.6, .25, 4.2], slab); }
-// containers (glass boxes)
-function container(x0, x1, z0, z1, h, label, lx, lz) {
-  const geo = new THREE.BoxGeometry(x1 - x0, h, z1 - z0); const m = new THREE.Mesh(geo, glass(COL.bl, .07)); m.renderOrder = 10; m.position.set((x0 + x1) / 2, .16 + h / 2, (z0 + z1) / 2);
-  const e = edgeGlow(geo, COL.bl, .45); m.add(e); scene.add(m); return m; }
-container(-3.1, 1.9, -2.5, 2.4, 2.2); container(2.1, 3.7, -2.3, -.1, 1.8);
-
-// FastAPI core: glass cube with inner bright core
-const api = new THREE.Group(); api.position.set(-1.7, 1.15, 1.3); scene.add(api);
-{ const g = new THREE.BoxGeometry(1.1, 1.1, 1.1); const m = new THREE.Mesh(g, glass(COL.bl, .22)); api.add(m, edgeGlow(g, COL.bl));
-  const core = new THREE.Mesh(new THREE.BoxGeometry(.35, .35, .35), new THREE.MeshBasicMaterial({ color: COL.bl })); api.add(core, halo(COL.bl, 2.2, .35)); api.userData.core = core; }
-tagNode('api', 'FastAPI', 'SSE · /api/ask', COL.bl, [-1.7, 1.15, 1.3], api);
-// Agent: the accent orb with orbiting rings
-const agent = new THREE.Group(); agent.position.set(.8, 1.55, 1.1); scene.add(agent);
-{ const orb = new THREE.Mesh(new THREE.SphereGeometry(.46, 48, 48), new THREE.MeshStandardMaterial({ color: COL.ac, emissive: COL.ac, emissiveIntensity: 1.6, roughness: .3 }));
-  agent.add(orb, halo(COL.ac, 3.4, .5));
-  for (let i = 0; i < 3; i++) { const r = new THREE.Mesh(new THREE.TorusGeometry(.78 + i * .2, .012, 8, 96), new THREE.MeshBasicMaterial({ color: i === 1 ? COL.gold : COL.ac, transparent: true, opacity: .8 }));
-    r.rotation.set(Math.random() * 3, Math.random() * 3, 0); agent.add(r); }
-  agent.userData.orb = orb; }
-tagNode('agent', 'Agent loop', 'plan · read · verify', COL.ac, [.8, 1.55, 1.1], agent);
-// Chromium: a floating screen inside the api container
-const chromeTex = canvasTex(512, 320, (g, w, h) => { g.fillStyle = '#101018'; g.fillRect(0, 0, w, h); g.fillStyle = '#1d1c16'; g.fillRect(0, 0, w, 34);
-  ['#FF6A4A', '#F2B544', '#7FD6C2'].forEach((c, i) => { g.fillStyle = c; g.beginPath(); g.arc(20 + i * 18, 17, 6, 0, 7); g.fill(); });
-  g.fillStyle = '#0b0b10'; g.fillRect(84, 8, 400, 18); g.fillStyle = '#7FD6C2'; g.font = '12px JetBrains Mono, monospace'; g.fillText('headless chromium · 1 tab', 94, 21);
-  for (let i = 0; i < 9; i++) { g.fillStyle = i === 0 ? 'rgba(241,235,221,.9)' : 'rgba(241,235,221,.35)'; g.fillRect(28, 58 + i * 28, i === 0 ? 260 : 300 + (i * 37 % 140), i === 0 ? 16 : 8); } });
-const chromium = new THREE.Group(); chromium.position.set(-1.9, 1.35, -1.35); chromium.rotation.y = .5; scene.add(chromium);
-{ const scr = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 1), new THREE.MeshBasicMaterial({ map: chromeTex, color: 0xb8b4aa, side: THREE.FrontSide }));
-  chromium.add(scr, edgeGlow(new THREE.PlaneGeometry(1.6, 1), COL.c1, .9), halo(COL.c1, 2.4, .18)); }
-tagNode('chromium', 'Chromium', 'Playwright · SSRF guard', COL.c1, [-1.9, 1.35, -1.35], chromium);
-// Postgres: stacked glowing discs
-const pg = new THREE.Group(); pg.position.set(2.9, .55, -1.2); scene.add(pg);
-for (let i = 0; i < 3; i++) { const g = new THREE.CylinderGeometry(.5, .5, .26, 40); const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: 0x1a2340, emissive: COL.bl, emissiveIntensity: .35, metalness: .5, roughness: .3 }));
-  m.position.y = i * .34; pg.add(m, at(edgeGlow(g, COL.c4, .8), m.position.clone())); }
-pg.add(at(halo(COL.c4, 2, .25), new THREE.Vector3(0, .35, 0)));
-tagNode('pg', 'Postgres 16', 'cache · quota · runs', COL.c4, [2.9, 1.05, -1.2], pg);
-// Tavily + Gemini: floating crystals outside the VM
-function crystal(geo, color, pos) { const g = new THREE.Group(); g.position.set(...pos);
-  const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: new THREE.Color(color).multiplyScalar(.35), emissive: color, emissiveIntensity: .18, roughness: .55, metalness: .2, flatShading: true }));
-  g.add(m, edgeGlow(geo, color, .95), halo(color, 3.2, .3));
-  const ring = new THREE.Mesh(new THREE.TorusGeometry(1.1, .015, 8, 90), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: .7 })); ring.rotation.x = Math.PI / 2.3; g.add(ring);
-  scene.add(g); g.userData.m = m; return g; }
-const tavily = crystal(new THREE.IcosahedronGeometry(.62, 0), COL.vio, [7.6, 2.5, 2.6]);
-const gemini = crystal(new THREE.OctahedronGeometry(.7, 0), COL.c1, [7.4, 2.7, -2.7]);
-tagNode('tavily', 'Tavily', 'web search · 1 credit', COL.vio, [7.6, 2.5, 2.6], tavily);
-tagNode('gemini', 'Gemini Flash-Lite', 'reads · extracts · cites', COL.c1, [7.4, 2.7, -2.7], gemini);
-// The open web: an arc of real-looking pages
-const webCenter = new THREE.Vector3(-8.6, 2.1, .2);
-const pagePalette = [['#FF6A4A', 'Specs'], ['#9BA9FF', 'Docs'], ['#7FD6C2', 'News'], ['#F2B544', 'Store'], ['#A9B89A', 'Wiki'], ['#C58CFF', 'Forum'], ['#F1EBDD', 'Blog']];
-const pagesW = [];
-pagePalette.forEach(([c, nm], i) => {
-  const tex = canvasTex(400, 500, (g, w, h) => { g.fillStyle = '#F6F1E4'; g.fillRect(0, 0, w, h); g.fillStyle = c; g.fillRect(0, 0, w, 54); g.fillStyle = '#1B1A17'; g.font = 'bold 22px Familjen Grotesk, sans-serif'; g.fillText(nm.toUpperCase(), 18, 35);
-    g.font = '30px Young Serif, Georgia, serif'; g.fillText(['Ryzen 9 9950X', 'Python 3.13', 'Release notes', 'Returns policy', 'Overview', 'Thread #412', 'How it works'][i], 18, 102);
-    for (let k = 0; k < 13; k++) { g.fillStyle = (i === 3 && k === 6) ? '#1B1A17' : 'rgba(27,26,23,.28)'; g.fillRect(18, 130 + k * 26, 364 - (k * 53 % 120), (i === 3 && k === 6) ? 12 : 9); } });
-  const a = Math.PI * (.62 + i * .125), r = 3.2;
-  const m = new THREE.Mesh(new THREE.PlaneGeometry(1.25, 1.56), new THREE.MeshBasicMaterial({ map: tex, color: 0x57544c, side: THREE.FrontSide }));
-  m.position.set(webCenter.x + Math.cos(a) * r * .55, webCenter.y + Math.sin(i * 1.3) * .35, webCenter.z + Math.sin(a) * r * -1.1);
-  m.lookAt(0, 1.6, webCenter.z * .3); m.add(edgeGlow(new THREE.PlaneGeometry(1.25, 1.56), new THREE.Color(c).getHex(), .9));
-  scene.add(m); pagesW.push(m);
-});
-const target = pagesW[3];  // the page that holds the answer
-const hlBar = new THREE.Mesh(new THREE.PlaneGeometry(1.14, .1), new THREE.MeshBasicMaterial({ color: 0xFFB547, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide }));
-hlBar.position.set(-.03, .78 - (130 + 6 * 26 + 6) / 500 * 1.56, .012); target.add(hlBar);
-const hlGlow = halo(0xFFB547, 1, 0); hlGlow.scale.set(1.3, .28, 1); hlGlow.position.copy(hlBar.position); target.add(hlGlow);
-tagNode('web', 'The open web', 'real pages · robots.txt', COL.c1, [webCenter.x + .6, 3.8, webCenter.z], null);
-// The user's screen
-const uiTex = canvasTex(800, 460, (g, w, h) => { g.fillStyle = '#16150F'; g.fillRect(0, 0, w, h);
-  const gr = g.createLinearGradient(0, 0, 70, 70); gr.addColorStop(0, '#FFE29A'); gr.addColorStop(.5, '#F2B544'); gr.addColorStop(1, '#C9831F');
-  g.fillStyle = gr; g.font = 'italic 40px Young Serif, Georgia, serif'; g.fillText('JR', 36, 66); g.fillStyle = '#F1EBDD'; g.font = '34px Young Serif, Georgia, serif'; g.fillText('WebInfo', 96, 64);
-  g.font = '64px Young Serif, Georgia, serif'; g.fillText('Ask the', 36, 170); g.fillStyle = '#FF6A4A'; g.font = 'italic 64px Young Serif, Georgia, serif'; g.fillText('web.', 290, 170);
-  g.fillStyle = '#F1EBDD'; g.font = '64px Young Serif, Georgia, serif'; g.fillText('Get the', 36, 240); g.fillStyle = '#9BA9FF'; g.font = 'italic 64px Young Serif, Georgia, serif'; g.fillText('answer.', 290, 240);
-  const rg = g.createLinearGradient(36, 0, 764, 0); ['#ff2d55', '#ff7a1a', '#2dff8f', '#2d9bff', '#b02dff'].forEach((c, i) => rg.addColorStop(i / 4, c));
-  g.fillStyle = rg; g.beginPath(); g.roundRect ? g.roundRect(36, 300, 728, 90, 20) : g.rect(36, 300, 728, 90); g.fill();
-  g.fillStyle = '#F1EBDD'; g.beginPath(); g.roundRect ? g.roundRect(40, 304, 720, 82, 17) : g.rect(40, 304, 720, 82); g.fill();
-  g.fillStyle = '#1B1A17'; g.font = '26px Familjen Grotesk, sans-serif'; g.fillText('Max boost clock of the Ryzen 9 9950X?', 62, 355);
-  g.fillStyle = '#FF6A4A'; g.beginPath(); g.roundRect ? g.roundRect(620, 316, 126, 58, 12) : g.rect(620, 316, 126, 58); g.fill(); g.fillStyle = '#fff'; g.font = 'bold 22px Familjen Grotesk, sans-serif'; g.fillText('Find it', 646, 353); });
-const user = new THREE.Group(); user.position.set(0, 1.9, 8.8); scene.add(user);
-{ const scr = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 1.84), new THREE.MeshBasicMaterial({ map: uiTex, color: 0xcfcac0, side: THREE.FrontSide }));
-  scr.rotation.y = Math.PI; user.add(scr, edgeGlow(new THREE.PlaneGeometry(3.2, 1.84), COL.ink, .6));
-  const stand = new THREE.Mesh(new THREE.CylinderGeometry(.04, .04, 1.9, 8), new THREE.MeshBasicMaterial({ color: 0x3a382e })); stand.position.y = -1.85; user.add(stand); user.add(at(halo(COL.ac, 5, .12), new THREE.Vector3(0, 0, .3))); }
-user.lookAt(0, 1.5, 0);
-tagNode('user', 'Browser UI', 'your question', COL.ink, [0, 3.1, 8.8], user);
-// Deploy path (back)
-function monolith(color, pos) { const g = new THREE.BoxGeometry(.9, 1.4, .25); const m = new THREE.Mesh(g, glass(color, .25)); m.position.set(...pos); m.add(edgeGlow(g, color, .9), halo(color, 2, .2)); scene.add(m); return m; }
-const gh = monolith(0xff7a8a, [-3, 1.1, -9.5]), cs = monolith(0xff7a8a, [2.4, 1.1, -9.5]);
-tagNode('github', 'GitHub', 'webinfo · main', 0xff7a8a, [-3, 2.2, -9.5], gh);
-tagNode('shell', 'Cloud Shell', 'create-vm.sh', 0xff7a8a, [2.4, 2.2, -9.5], cs);
-
-// ---------------- data streams ----------------
-const anchor = id => id === 'web' ? target.getWorldPosition(new THREE.Vector3()) : id === 'vm' ? new THREE.Vector3(0, .2, -4.6) : nodes[id].obj.getWorldPosition(new THREE.Vector3());
-const links = {};
-function link(a, b, lift = 1.4) {
-  const p0 = anchor(a), p1 = anchor(b), mid = p0.clone().add(p1).multiplyScalar(.5); mid.y += lift + p0.distanceTo(p1) * .1;
-  const curve = new THREE.QuadraticBezierCurve3(p0, mid, p1);
-  const tube = new THREE.Mesh(new THREE.TubeGeometry(curve, 60, .012, 6, false), new THREE.MeshBasicMaterial({ color: 0x3a4a66, transparent: true, opacity: .35, depthWrite: false }));
-  scene.add(tube);
-  const n = 70, pos = new Float32Array(n * 3), g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-  const pts = new THREE.Points(g, new THREE.PointsMaterial({ size: .16, map: glowTex, color: 0xffffff, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending }));
-  scene.add(pts);
-  const head = halo(0xffffff, .9, 0); scene.add(head);
-  return links[a + '>' + b] = { curve, tube, pts, head, n, act: 0, color: new THREE.Color(0xffffff) };
-}
-[['user', 'api'], ['api', 'agent'], ['agent', 'tavily'], ['agent', 'chromium'], ['chromium', 'web'], ['agent', 'gemini'], ['agent', 'pg'], ['api', 'user'], ['gemini', 'agent'], ['tavily', 'agent'], ['github', 'shell'], ['shell', 'vm']]
-  .forEach(([a, b]) => link(a, b, a === 'api' && b === 'user' ? 2.2 : (a === 'gemini' || a === 'tavily') ? -.4 : 1.4));
-
-// ---------------- the film: chapters + camera ----------------
-const CH = [
-  { t: 0,    dur: 2.6, title: true,                                                       cam: [[0, 11, 24], [0, 1.2, 0]], cam2: [[2, 8, 19], [0, 1.4, 0]], links: [] },
-  { t: 2.6,  dur: 2.2, eb: '01 / Ask',      h: 'You <i>ask</i> in plain words.',          p: 'The browser opens one live stream to the API: GET /api/ask.',                              cam: [[3.5, 3.4, 14], [0, 1.8, 6]],   cam2: [[2, 2.8, 12], [-.5, 1.6, 4]], links: [['user', 'api', 'ac'], ['api', 'agent', 'ac']], hot: ['user', 'api', 'agent'] },
-  { t: 4.8,  dur: 2.2, eb: '02 / Search',   h: 'Tavily finds the <i>candidates.</i>',     p: 'One basic search, one credit, cached for 24 hours.',                                      cam: [[4.5, 4.6, 9.5], [5.5, 2.2, 2]], cam2: [[6.5, 3.8, 8], [6.6, 2.3, 2.3]], links: [['agent', 'tavily', 'vio'], ['tavily', 'agent', 'vio']], hot: ['agent', 'tavily'] },
-  { t: 7.0,  dur: 3.0, eb: '03 / Navigate', h: 'Chromium <i>opens real pages.</i>',      p: 'One tab at a time, robots rules respected. Every screen streams back with the cursor.',   cam: [[-2.5, 3.6, 7.5], [-6.5, 2, 0]], cam2: [[-4.2, 3, 5.6], [-8, 2.1, .2]], links: [['agent', 'chromium', 'c1'], ['chromium', 'web', 'c1']], hot: ['chromium', 'web', 'agent'], cursor: 'scan' },
-  { t: 10.0, dur: 2.2, eb: '04 / Extract',  h: 'Gemini lifts out <i>the exact fact.</i>', p: 'One Flash-Lite call reads numbered blocks and returns JSON with verbatim quotes.',        cam: [[4.2, 4.2, -5.8], [6.8, 2.5, -2.4]], cam2: [[5.6, 3.4, -5.2], [7.2, 2.6, -2.6]], links: [['agent', 'gemini', 'c1'], ['gemini', 'agent', 'c1']], hot: ['agent', 'gemini'] },
-  { t: 12.2, dur: 2.3, eb: '05 / Verify',   h: 'Back to the source. <i>Point at it.</i>', p: 'The agent re-opens the page, scrolls to the quote and highlights the passage.',             cam: [[-6.2, 2.6, 3.9], [-10.0, 1.9, .3]], cam2: [[-7.0, 2.3, 3.0], [-10.3, 1.84, .15]], links: [['chromium', 'web', 'gold']], hot: ['web', 'chromium'], cursor: 'select' },
-  { t: 14.5, dur: 2.4, eb: '06 / Answer',   h: 'A cited answer, <i>cached for next time.</i>', p: 'Streamed to your screen with its quotes; stored in Postgres so repeats cost nothing.', cam: [[2.5, 7, 18.5], [0, 1.3, 1]], cam2: [[1.5, 7.4, 18.5], [0, 1.3, 1]], links: [['api', 'user', 'gold'], ['agent', 'pg', 'bl'], ['api', 'agent', 'gold']], hot: ['user', 'pg', 'api'] },
-  { t: 16.9, dur: 2.6, end: true,                                                          cam: [[0, 15, 21], [0, .5, -1.5]], cam2: [[-3, 17, 23], [0, .5, -2]], links: [['github', 'shell', 'deploy'], ['shell', 'vm', 'deploy']], hot: ['github', 'shell', 'vm'] },
-];
-const TOTAL = 19.5;
-const PAL = { ac: COL.ac, vio: COL.vio, c1: COL.c1, gold: COL.gold, bl: COL.bl, deploy: 0xff7a8a };
-const ease = x => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
-const v3 = a => new THREE.Vector3(...a);
-function camAt(t) {
-  let i = CH.findIndex((c, k) => t >= c.t && (k === CH.length - 1 || t < CH[k + 1].t)); if (i < 0) i = 0;
-  const c = CH[i], u = Math.min(1, (t - c.t) / c.dur);
-  // locked-off camera per shot (no dolly, no crane): the cut is hidden by a short fade through black
-  const p = v3(c.cam[0]).lerp(v3(c.cam2[0]), .5), l = v3(c.cam[1]).lerp(v3(c.cam2[1]), .5);
-  return { p, l, i, u };
-}
-
-// ---------------- overlays ----------------
-const labelsEl = document.getElementById('labels'), tags = {};
-Object.entries(nodes).forEach(([id, n]) => { const d = document.createElement('div'); d.className = 'tag'; d.style.setProperty('--c', hex(n.color));
-  d.innerHTML = `${n.name}<span style="opacity:.55;text-transform:none;letter-spacing:0"> · ${n.sub}</span>`; labelsEl.appendChild(d); tags[id] = d; });
-const chap = document.getElementById('chap'), title = document.getElementById('title'), cur = document.getElementById('cur');
-let lastChap = -1;
-function overlays(t, ci) {
-  if (ci !== lastChap) {
-    const c = CH[ci]; lastChap = ci;
-    chap.classList.add('out');
-    if (c.eb) setTimeout(() => { document.getElementById('eb').textContent = c.eb; document.getElementById('ch').innerHTML = c.h; document.getElementById('cp').textContent = c.p; chap.classList.remove('out'); }, CAPTURE ? 0 : 280);
-    title.classList.toggle('out', !(c.title || c.end));
-    document.getElementById('tl').hidden = !!c.end; document.getElementById('ln').hidden = !c.end;
-    screen.style.setProperty('--bar', (c.title || c.end) ? '12%' : '8.5%');
-    Object.entries(tags).forEach(([id, el]) => { el.classList.toggle('hot', !!(c.hot && c.hot.includes(id))); el.classList.toggle('dim', !!(c.hot && !c.hot.includes(id))); el.classList.toggle('ghost', !!c.title || (!!c.end && !c.hot.includes(id))); });
-  }
-  {  // frame-exact fades, identical live and offline
-    const c = CH[ci], local = t - c.t, a = Math.max(0, Math.min(1, local / .5, (c.dur - local) / .45));
-    if (c.eb) { document.getElementById('eb').textContent = c.eb; document.getElementById('ch').innerHTML = c.h; document.getElementById('cp').textContent = c.p; }
-    chap.classList.remove('out'); chap.style.opacity = c.eb ? a : 0; chap.style.transform = `translateY(${(1 - a) * 14}px)`;
-    const ta = c.title ? Math.min(1, (c.dur - local) / .6) : c.end ? Math.min(1, local / .8) : 0;
-    title.classList.remove('out'); title.style.opacity = Math.max(0, ta);
-    const barK = c.title ? Math.max(0, Math.min(1, (c.dur - local) / .9)) : c.end ? Math.min(1, local / .9) : 0;
-    screen.style.setProperty('--bar', (8.5 + 3.5 * barK).toFixed(2) + '%');
-    const fin = ci > 0 ? Math.max(0, 1 - local / .28) : 0, fout = Math.max(0, 1 - (c.dur - local) / .2);
-    document.getElementById('fade').style.opacity = Math.max(fin, ci === CH.length - 1 ? 0 : fout).toFixed(3);
-  }
-}
-const vtmp = new THREE.Vector3();
-function project(p, el) { vtmp.copy(p).project(camera); const vis = vtmp.z < 1 && Math.abs(vtmp.x) < 1.15 && Math.abs(vtmp.y) < 1.15;
-  el.style.display = vis ? '' : 'none'; if (vis) { el.style.left = ((vtmp.x + 1) / 2 * screen.clientWidth) + 'px'; el.style.top = ((1 - vtmp.y) / 2 * screen.clientHeight) + 'px'; } return vis; }
-
-// ---------------- frame ----------------
-let tNow = 0, playing = !reduce || CAPTURE, free = false;
-const orbit = { th: .4, ph: 1.1, r: 18 };
-function frame(t) {
-  const { p, l, i, u } = camAt(t);
-  if (!free) { camera.position.copy(p); camera.lookAt(l); }
-  overlays(t, i);
-  const c = CH[i];
-  // animate set pieces
-  agent.rotation.y = t * .6; agent.children.forEach((ch, k) => { if (ch.geometry && ch.geometry.type === 'TorusGeometry') { ch.rotation.x += 0; ch.rotation.z = t * (.4 + k * .15); } });
-  const pulse = 1 + Math.sin(t * 4) * .06; agent.userData.orb.scale.setScalar(pulse);
-  api.userData.core.rotation.set(t, t * 1.3, 0);
-  [tavily, gemini].forEach((g, k) => { g.userData.m.rotation.set(t * .5, t * (.7 + k * .2), 0); g.position.y = (k ? 2.7 : 2.5) + Math.sin(t * 1.2 + k) * .12; });
-  pagesW.forEach((m, k) => m.position.y += Math.sin(t * 1.1 + k) * .0015);
-  const pos = dust.p.geometry.attributes.position;
-  for (let k = 0; k < pos.count; k++) { pos.array[k * 3 + 1] = dust.base[k * 3 + 1] + Math.sin(t * .5 + dust.seed[k]) * .25; pos.array[k * 3] = dust.base[k * 3] + Math.cos(t * .3 + dust.seed[k]) * .2; }
-  pos.needsUpdate = true;
-  key.intensity = 2 + Math.sin(t * 2) * .3;
-  // streams: fade active ones in, others out
-  const active = {}; (c.links || []).forEach(([a, b, col]) => active[a + '>' + b] = PAL[col]);
-  Object.entries(links).forEach(([k, L]) => {
-    const on = active[k] !== undefined; L.act += ((on ? 1 : 0) - L.act) * (CAPTURE ? .35 : .08);
-    if (on) L.color.setHex(active[k]);
-    L.pts.material.color.copy(L.color); L.pts.material.opacity = L.act; L.head.material.color.copy(L.color); L.head.material.opacity = L.act * .9;
-    L.tube.material.color.copy(new THREE.Color(0x3a4a66).lerp(L.color, L.act * .7)); L.tube.material.opacity = .25 + L.act * .55;
-    const arr = L.pts.geometry.attributes.position.array, local = Math.max(0, t - c.t);
-    for (let n = 0; n < L.n; n++) { const s = ((n / L.n) * 1 + local * .55) % 1; const q = L.curve.getPoint(s); arr[n * 3] = q.x; arr[n * 3 + 1] = q.y; arr[n * 3 + 2] = q.z; }
-    L.pts.geometry.attributes.position.needsUpdate = true;
-    L.head.position.copy(L.curve.getPoint(Math.min(1, local / 1.1)));
+// ---------- helpers ----------
+const std = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: .45, metalness: .25, ...o });
+const glow = color => new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 1.4, roughness: .4 });
+function mesh(geo, mat, pos = [0, 0, 0], parent = scene) { const m = new THREE.Mesh(geo, mat); m.position.set(...pos); m.castShadow = m.receiveShadow = true; parent.add(m); return m; }
+function tex(w, h, draw) { const c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d'); draw(g, w, h); const t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding; t.anisotropy = 8; return t; }
+function rr(g, x, y, w, h, r) { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
+function wrap(g, text, x, y, maxW, lh) { let line = ''; for (const w of text.split(' ')) { const t = line ? line + ' ' + w : w; if (g.measureText(t).width > maxW && line) { g.fillText(line, x, y); line = w; y += lh; } else line = t; } g.fillText(line, x, y); return y; }
+const screenMat = t => new THREE.MeshBasicMaterial({ map: t, color: 0xd2d0ca, toneMapped: false });   // stays under the bloom threshold
+function page(url, title, lines, hlRow = -1) {   // a believable web page with browser chrome
+  return tex(1024, 680, (g, w, h) => {
+    g.fillStyle = '#f7f5ef'; g.fillRect(0, 0, w, h);
+    g.fillStyle = '#26251f'; g.fillRect(0, 0, w, 56); ['#FF6A4A', '#F2B544', '#7FD6C2'].forEach((c, i) => { g.fillStyle = c; g.beginPath(); g.arc(28 + i * 24, 28, 8, 0, 7); g.fill(); });
+    g.fillStyle = '#0f0f12'; rr(g, 110, 13, 780, 30, 15); g.fill(); g.fillStyle = '#7FD6C2'; g.font = '18px "JetBrains Mono"'; g.fillText(url, 130, 34);
+    g.fillStyle = '#1B1A17'; g.font = '44px "Young Serif"'; g.fillText(title, 56, 130);
+    g.font = '24px "Familjen Grotesk"';
+    lines.forEach((l, i) => { const y = 190 + i * 46; if (i === hlRow) { g.fillStyle = 'rgba(242,181,68,.55)'; g.fillRect(48, y - 30, 920, 42); }
+      g.fillStyle = i === hlRow ? '#1B1A17' : '#55534b'; g.fillText(l, 56, y); });
   });
-  // highlight bar on the answer page during Verify / Answer
-  const hlOn = c.cursor === 'select' ? Math.min(1, (t - c.t - .9) * 1.6) : (i === 6 ? 1 - Math.min(1, (t - c.t) * .7) : 0);
-  hlBar.material.opacity = Math.max(0, hlOn) * .9; hlGlow.material.opacity = Math.max(0, hlOn) * .7; hlBar.scale.x = .2 + .8 * Math.max(0, Math.min(1, hlOn * 1.2));
-  // gaming cursor (same as the product UI) glides over the target page
-  if (c.cursor) {
-    const tp = target.localToWorld(new THREE.Vector3(c.cursor === 'scan' ? -.45 + ((t - c.t) % 1.5) / 1.5 * .9 : -.5 + Math.min(1, (t - c.t) / 1.4) * .95,
-                                                    c.cursor === 'scan' ? .55 - ((t - c.t) / c.dur) * 1 : hlBar.position.y, .02));
-    if (c.cursor === 'scan' && (t - c.t) < .7) tp.copy(pagesW[1 + Math.floor((t - c.t) * 4) % 3].getWorldPosition(new THREE.Vector3()));
-    cur.style.opacity = 1; project(tp, cur);
+}
+
+// ---------- stage: glossy floor + light track ----------
+mesh(new THREE.PlaneGeometry(140, 60), std(new THREE.Color(0x111114).convertSRGBToLinear(), { roughness: .85, metalness: .1 }), [0, 0, 0]).rotation.x = -Math.PI / 2;
+const track = mesh(new THREE.BoxGeometry(42, .04, .18), glow(0x3b3f66), [0, .03, 2.4]); track.castShadow = false;
+const pulses = []; for (let i = 0; i < 40; i++) { const m = mesh(new THREE.BoxGeometry(.32, .05, .2), glow(C.bl), [0, .05, 2.4]); m.castShadow = false; pulses.push(m); }
+
+const STX = [-18, -12, -6, 0, 6, 12, 18];
+const STC = [C.ac, C.bl, C.vio, C.c1, C.c1, C.gold, C.ac];
+const NAMES = ['01  ASK', '02  API', '03  SEARCH', '04  BROWSE', '05  READ', '06  VERIFY', '07  ANSWER'];
+STX.forEach((x, i) => {   // pedestal + glowing rim + name plate
+  mesh(new THREE.CylinderGeometry(1.9, 2, .32, 64), std(0x1f1f24, { metalness: .5, roughness: .35 }), [x, .16, 0]);
+  const ring = mesh(new THREE.TorusGeometry(1.95, .025, 8, 120), glow(STC[i]), [x, .33, 0]); ring.rotation.x = Math.PI / 2; ring.castShadow = false;
+  const plate = mesh(new THREE.PlaneGeometry(2.4, .42), screenMat(tex(480, 84, (g, w, h) => { g.fillStyle = '#0d0d10'; rr(g, 0, 0, w, h, 16); g.fill();
+    g.fillStyle = '#' + STC[i].toString(16).padStart(6, '0'); g.font = '500 34px "JetBrains Mono"'; g.textAlign = 'center'; g.fillText(NAMES[i], w / 2, 56); })), [x, .34, 2.02]);
+  plate.rotation.x = -.35;
+});
+
+// 1 · laptop with the WebInfo UI
+const Q = 'When was Python 3.13 released?';
+{ const x = STX[0], g = new THREE.Group(); g.position.set(x, .32, 0); scene.add(g); g.rotation.y = -.35;
+  mesh(new THREE.BoxGeometry(2.8, .1, 1.9), std(0x2b2b30, { metalness: .7, roughness: .3 }), [0, .05, 0], g);
+  const lid = new THREE.Group(); lid.position.set(0, .1, -.95); lid.rotation.x = -.22; g.add(lid);
+  mesh(new THREE.BoxGeometry(2.8, 1.8, .07), std(0x2b2b30, { metalness: .7, roughness: .3 }), [0, .9, 0], lid);
+  mesh(new THREE.PlaneGeometry(2.62, 1.62), screenMat(tex(1024, 634, (g2, w, h) => { g2.fillStyle = '#16150F'; g2.fillRect(0, 0, w, h);
+    g2.font = 'italic 44px "Young Serif"'; g2.fillStyle = '#F2B544'; g2.fillText('JR', 48, 80); g2.fillStyle = '#F1EBDD'; g2.font = '40px "Young Serif"'; g2.fillText('WebInfo', 112, 80);
+    g2.font = '84px "Young Serif"'; g2.fillText('Ask the', 48, 220); g2.fillStyle = '#FF6A4A'; g2.font = 'italic 84px "Young Serif"'; g2.fillText('web.', 360, 220);
+    const gr = g2.createLinearGradient(48, 0, 976, 0); ['#ff2d55', '#ff7a1a', '#2dff8f', '#2d9bff', '#b02dff'].forEach((c, k) => gr.addColorStop(k / 4, c));
+    g2.fillStyle = gr; rr(g2, 48, 300, 928, 120, 26); g2.fill(); g2.fillStyle = '#F1EBDD'; rr(g2, 54, 306, 916, 108, 22); g2.fill();
+    g2.fillStyle = '#1B1A17'; g2.font = '38px "Familjen Grotesk"'; g2.fillText(Q, 84, 374);
+    g2.fillStyle = '#FF6A4A'; rr(g2, 790, 322, 160, 76, 14); g2.fill(); g2.fillStyle = '#fff'; g2.font = 'bold 30px "Familjen Grotesk"'; g2.fillText('Find it', 818, 370); })), [0, .9, .04], lid);
+}
+// 2 · API server rack with blinking LEDs
+const leds = [];
+{ const x = STX[1]; mesh(new THREE.BoxGeometry(1.6, 2.6, 1.3), std(0x1d1e24, { metalness: .6, roughness: .35 }), [x, 1.62, 0]);
+  for (let u = 0; u < 5; u++) { mesh(new THREE.BoxGeometry(1.44, .4, .04), std(0x2a2c36, { metalness: .6 }), [x, .62 + u * .48, .67]);
+    for (let k = 0; k < 3; k++) { const l = mesh(new THREE.BoxGeometry(.07, .07, .03), glow(k === 0 ? C.c1 : C.bl), [x + .45 + k * .14, .62 + u * .48, .7]); l.castShadow = false; leds.push(l); } }
+  mesh(new THREE.PlaneGeometry(1.2, .32), screenMat(tex(400, 106, (g, w, h) => { g.fillStyle = '#0d0d10'; g.fillRect(0, 0, w, h); g.fillStyle = '#9BA9FF'; g.font = '500 38px "JetBrains Mono"'; g.fillText('FastAPI', 22, 50); g.fillStyle = '#8a8473'; g.font = '26px "JetBrains Mono"'; g.fillText('/api/ask · stream', 22, 90); })), [x - .1, 2.72, .66]).castShadow = false;
+}
+// 3 · magnifying glass over search result cards
+const lens = new THREE.Group(); { const x = STX[2]; lens.position.set(x + .2, 2.1, .4); scene.add(lens);
+  mesh(new THREE.TorusGeometry(.62, .1, 24, 80), std(C.vio, { metalness: .8, roughness: .25, emissive: C.vio, emissiveIntensity: .15 }), [0, 0, 0], lens);
+  mesh(new THREE.CircleGeometry(.6, 64), new THREE.MeshPhysicalMaterial({ color: 0xd8d0ff, transparent: true, opacity: .22, roughness: .05, metalness: 0, clearcoat: 1 }), [0, 0, 0], lens).castShadow = false;
+  mesh(new THREE.CylinderGeometry(.08, .1, 1.1, 24), std(0x2a2a30, { metalness: .6 }), [.62, -.72, 0], lens).rotation.z = .7;
+  lens.rotation.set(-.15, -.3, -.2);
+  [['docs.python.org', "What's New In Python 3.13"], ['peps.python.org', 'PEP 719 – 3.13 Release Schedule'], ['pythonspeed.com', 'When should you upgrade?']].forEach(([u, t], i) => {
+    mesh(new THREE.PlaneGeometry(2.3, .62), screenMat(tex(740, 200, (g, w, hh) => { g.fillStyle = '#f7f5ef'; rr(g, 0, 0, w, hh, 18); g.fill(); g.fillStyle = '#2B3FD6'; g.font = '26px "JetBrains Mono"'; g.fillText(u, 28, 58);
+      g.fillStyle = '#1B1A17'; g.font = '36px "Young Serif"'; g.fillText(t, 28, 120); g.fillStyle = '#9a978d'; g.fillRect(28, 150, 520, 12); })), [x - .3 + i * .12, 1.0 + i * .7, -.5 - i * .25]).rotation.y = .12;
+  }); }
+// 4 · browser windows (Chromium) — the cursor overlay works on the front one
+const win = []; { const x = STX[3];
+  [['peps.python.org/pep-0719', 'PEP 719', 2], ['pythonspeed.com/articles', 'Upgrade to 3.13?', 1], ['docs.python.org/3/whatsnew/3.13', "What's New In Python 3.13", 0]].forEach(([u, t, d]) => {
+    const m = mesh(new THREE.PlaneGeometry(3.1, 2.06), screenMat(page(u, t, ['Python 3.13 is the newest major release.', 'This article explains the new features in', 'Python 3.13, compared to 3.12. Python 3.13', 'was released on October 7, 2024.', 'For full details, see the changelog.', 'Summary – Release Highlights'])), [x - .25 + d * .32, 1.55 + d * .35, -d * .55]);
+    m.rotation.y = -.12; win.push(m); }); }
+// 5 · Gemini reads: document under a scanning beam
+let scanBar, reader; { const x = STX[4];
+  mesh(new THREE.PlaneGeometry(2.1, 2.7), screenMat(tex(620, 800, (g, w, h) => { g.fillStyle = '#f7f5ef'; g.fillRect(0, 0, w, h); g.fillStyle = '#1B1A17'; g.font = '40px "Young Serif"'; g.fillText('PEP 719', 40, 80);
+    g.font = '24px "Familjen Grotesk"'; g.fillStyle = '#55534b'; ['[B12] 3.13.0 candidate 3: Tuesday,', '2024-10-01', '[B13] 3.13.0 final: Monday,', '2024-10-07', '[B14] Subsequent bugfix releases', 'every two months.'].forEach((l, i) => g.fillText(l, 40, 150 + i * 44));
+    g.fillStyle = 'rgba(127,214,194,.3)'; g.fillRect(32, 254, 556, 92); for (let i = 0; i < 8; i++) { g.fillStyle = '#c9c6bc'; g.fillRect(40, 450 + i * 36, 420 + (i * 57 % 120), 12); } })), [x - .2, 1.75, -.2]).rotation.x = -.12;
+  scanBar = mesh(new THREE.PlaneGeometry(2.2, .06), glow(C.c1), [x - .2, 2.6, -.1]); scanBar.castShadow = false;
+  reader = mesh(new THREE.SphereGeometry(.28, 48, 48), glow(C.c1), [x + .9, 3.35, .4]); reader.castShadow = false;
+  const cone = mesh(new THREE.ConeGeometry(1.1, 1.6, 48, 1, true), new THREE.MeshBasicMaterial({ color: C.c1, transparent: true, opacity: .08, side: THREE.DoubleSide, depthWrite: false }), [x + .35, 2.6, .2]);
+  cone.rotation.z = -.5; cone.castShadow = false; }
+// 6 · verify: one window, highlighted evidence row
+let vwin; { const x = STX[5];
+  vwin = mesh(new THREE.PlaneGeometry(3.4, 2.26), screenMat(page('docs.python.org/3/whatsnew/3.13', "What's New In Python 3.13", ['Editors: Adam Turner and Thomas Wouters', 'This article explains the new features in', 'Python 3.13, compared to 3.12.', 'Python 3.13 was released on October 7, 2024.', 'For full details, see the changelog.'], 3)), [x - .1, 1.75, -.1]);
+  vwin.rotation.y = -.1; }
+// 7 · answer card + Postgres cache
+const card = new THREE.Group(); { const x = STX[6]; card.position.set(x - .4, 1.85, 0); scene.add(card);
+  mesh(new THREE.PlaneGeometry(3.2, 1.9), screenMat(tex(1000, 594, (g, w, h) => { g.fillStyle = '#7FD6C2'; rr(g, 0, 0, w, h, 40); g.fill();
+    g.fillStyle = '#1B1A17'; g.font = '500 26px "JetBrains Mono"'; g.fillText('ANSWER', 48, 72); g.textAlign = 'right'; g.fillText('found · 5.0 s', w - 48, 72); g.textAlign = 'left';
+    g.font = '60px "Young Serif"'; wrap(g, 'Python 3.13 was released on October 7, 2024.', 48, 160, 900, 70);
+    g.fillStyle = '#F6F1E4'; rr(g, 48, 330, 904, 180, 22); g.fill(); g.strokeStyle = '#1B1A17'; g.lineWidth = 4; rr(g, 48, 330, 904, 180, 22); g.stroke();
+    g.fillStyle = '#2B3FD6'; g.font = '26px "JetBrains Mono"'; g.fillText('docs.python.org/3/whatsnew/3.13.html', 78, 386);
+    g.fillStyle = '#1B1A17'; g.font = 'italic 30px "Familjen Grotesk"'; g.fillText('“Python 3.13 was released on October 7, 2024.”', 78, 450); })), [0, 0, 0], card);
+  for (let i = 0; i < 3; i++) { mesh(new THREE.CylinderGeometry(.42, .42, .3, 48), std(0x24305c, { metalness: .5, roughness: .3 }), [x + 1.45, .5 + i * .36, .5]);
+    const r = mesh(new THREE.TorusGeometry(.42, .015, 8, 64), glow(C.bl), [x + 1.45, .65 + i * .36, .5]); r.rotation.x = Math.PI / 2; r.castShadow = false; } }
+
+// the question capsule that travels the line
+const token = new THREE.Group(); scene.add(token);
+mesh(new THREE.CylinderGeometry(.16, .16, .8, 24), glow(C.ac), [0, 0, 0], token).rotation.z = Math.PI / 2;
+const qTag = mesh(new THREE.PlaneGeometry(2.6, .34), screenMat(tex(800, 104, (g, w, h) => { g.fillStyle = 'rgba(13,13,16,.92)'; rr(g, 0, 0, w, h, 52); g.fill(); g.fillStyle = '#F1EBDD'; g.font = '40px "Familjen Grotesk"'; g.textAlign = 'center'; g.fillText(Q, w / 2, 66); })), [0, .42, 0], token);
+qTag.material.transparent = true; qTag.castShadow = false;
+
+// ---------- the film ----------
+const SH = [
+  { title: true, dur: 3 },
+  { s: 0, no: '01 / Ask', h: 'You <i>ask</i> in plain words.', p: 'The WebInfo site opens one live stream to the agent.', f: 'frontend/index.html' },
+  { s: 1, no: '02 / API', h: 'FastAPI <i>takes the question.</i>', p: 'Checks the cache, starts the agent and streams every step back to your screen.', f: 'backend/app/main.py' },
+  { s: 2, no: '03 / Search', h: 'Tavily finds <i>the right pages.</i>', p: 'One search returns pages and their text. Off-topic results are dropped.', f: 'backend/app/search.py' },
+  { s: 3, no: '04 / Browse', h: 'A real browser <i>opens the page.</i>', p: 'Headless Chromium loads the top result, and you watch it live with the cursor.', f: 'backend/app/browser.py' },
+  { s: 4, no: '05 / Read', h: 'Gemini reads <i>and extracts.</i>', p: 'One Flash-Lite call pulls out the exact fact with a word-for-word quote.', f: 'backend/app/llm.py · agent.py' },
+  { s: 5, no: '06 / Verify', h: 'Back to the source. <i>Point at it.</i>', p: 'The agent scrolls to the quote and highlights it on the real page.', f: 'backend/app/browser.py' },
+  { s: 6, no: '07 / Answer', h: 'A cited answer <i>in about 5 s.</i>', p: 'Shown with its quote, then cached in Postgres so a repeat costs nothing.', f: 'backend/app/db.py' },
+  { end: true, dur: 3.4 },
+];
+let acc = 0; SH.forEach(c => { c.dur = c.dur || 2.9; c.t = acc; acc += c.dur; }); const TOTAL = acc;
+const v = (...a) => new THREE.Vector3(...a);
+const shotCam = c => c.title ? [v(0, 8, 35), v(0, 1.4, 0)] : c.end ? [v(0, 6.5, 34), v(0, 1.7, 0)] : [v(STX[c.s] + 1.1, 3.1, 10.8), v(STX[c.s] - 2.1, 2.05, 0)];
+const ease = x => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+const clamp = x => Math.max(0, Math.min(1, x));
+const cur = $('cur'), vtmp = v(0, 0, 0);
+function proj(p) { vtmp.copy(p).project(camera); return [(vtmp.x + 1) / 2 * screen.clientWidth, (1 - vtmp.y) / 2 * screen.clientHeight]; }
+let lastShot = -1, tNow = 0, free = false;
+function frame(t) {
+  const i = SH.findIndex((c, k) => t >= c.t && (k === SH.length - 1 || t < SH[k + 1].t)), c = SH[i], local = t - c.t;
+  if (!free) { const [p, l] = shotCam(c); camera.position.copy(p); camera.lookAt(l); }
+  if (i !== lastShot) { lastShot = i; if (c.h) { $('no').textContent = c.no; $('h').innerHTML = c.h; $('p').textContent = c.p; $('fl').textContent = c.f; } $('tl').hidden = !c.title; $('ln').hidden = !c.end; }
+  const a = clamp(Math.min(local / .45, (c.dur - local) / .35));
+  $('cap').style.opacity = c.h ? a : 0; $('cap').style.transform = `translateY(calc(-50% + ${(1 - a) * 12}px))`;
+  $('title').style.opacity = c.title ? clamp((c.dur - local) / .6) : c.end ? clamp(local / .7) : 0;
+  $('fade').style.opacity = Math.max(i > 0 ? clamp(1 - local / .3) : 0, i < SH.length - 1 ? clamp(1 - (c.dur - local) / .22) : 0).toFixed(3);
+  // the question capsule moves station to station
+  const si = c.title ? -1 : c.end ? 6 : c.s, from = si <= 0 ? -21 : STX[si - 1], to = si < 0 ? -21 : STX[si];
+  const k = c.end ? 1 : ease(clamp((local - .25) / .9)), tx = from + (to - from) * k;
+  token.position.set(tx, 3.55 + Math.sin(t * 2.4) * .06 - (c.end ? .3 : 0), 1.0);
+  pulses.forEach((m, n) => { m.position.x = -21 + ((n / pulses.length) * 42 + t * 3) % 42; });
+  leds.forEach((l, n) => l.material.emissiveIntensity = (Math.sin(t * 9 + n * 1.7) > .2) ? 1.6 : .15);
+  lens.position.y = 2.1 + Math.sin(t * 1.4) * .06; lens.rotation.z = -.2 + Math.sin(t * .9) * .05;
+  scanBar.position.y = 2.95 - ((t * .55) % 1) * 2.4; reader.material.emissiveIntensity = 1.2 + Math.sin(t * 5) * .4;
+  card.position.y = 1.85 + Math.sin(t * 1.3) * .04;
+  // gaming cursor: scans the front browser window, then selects the evidence row
+  if ((c.s === 3 || c.s === 5) && !free) {
+    const w = c.s === 3 ? win[2] : vwin;
+    const lx = c.s === 3 ? -.9 + (local % 1.2) / 1.2 * 1.6 : -1.1 + ease(clamp((local - .3) / 1.1)) * 2.2;
+    const ly = c.s === 3 ? .5 - clamp(local / c.dur) * .9 : 1.13 - (190 + 3 * 46 - 9) / 680 * 2.26;
+    const [px, py] = proj(w.localToWorld(v(lx, ly, .02)));
+    cur.style.opacity = clamp(local / .3); cur.style.transform = `translate(${px}px,${py}px)`;
     cur.style.setProperty('--br', (.85 + Math.sin(t * 3.4) * .17).toFixed(3)); cur.style.setProperty('--rot', (t * 60 % 360).toFixed(1) + 'deg');
   } else cur.style.opacity = 0;
-  Object.entries(nodes).forEach(([id, n]) => project(n.pos, tags[id]));
   composer.render();
-  document.getElementById('grain').style.transform = `translate(${(Math.sin(t * 91) * 8).toFixed(1)}%,${(Math.cos(t * 73) * 8).toFixed(1)}%)`;
-  document.getElementById('prog').style.width = (t / TOTAL * 100) + '%';
-  document.getElementById('tc').textContent = `00:${String(Math.floor(t)).padStart(2, '0')} / 00:${Math.round(TOTAL)}`;
+  $('prog').style.width = (t / TOTAL * 100) + '%'; $('tc').textContent = `${t.toFixed(1).padStart(4, '0')} / ${TOTAL.toFixed(1)} s`;
 }
-function resize() {
-  const w = screen.clientWidth, h = screen.clientHeight;
-  renderer.setSize(w, h, false); composer.setSize(w, h); camera.aspect = w / h;
-  camera.fov = w < 640 ? 50 : 38; camera.updateProjectionMatrix();
-}
+function resize() { const w = screen.clientWidth, h = screen.clientHeight; renderer.setSize(w, h, false); composer.setSize(w, h); camera.aspect = w / h; camera.fov = w < 640 ? 46 : 35; camera.updateProjectionMatrix(); }
 new ResizeObserver(resize).observe(screen); resize();
 
-// timeline ticks + controls
-const scrub = document.getElementById('scrub');
-CH.forEach(c => { if (c.t > 0) { const b = document.createElement('b'); b.style.left = (c.t / TOTAL * 100) + '%'; scrub.appendChild(b); } });
-scrub.addEventListener('click', e => { const r = scrub.getBoundingClientRect(); tNow = (e.clientX - r.left) / r.width * TOTAL; lastChap = -1; });
-const playBtn = document.getElementById('play'); playBtn.textContent = playing ? 'Pause' : 'Play';
-playBtn.onclick = () => { playing = !playing; playBtn.textContent = playing ? 'Pause' : 'Play'; };
-const freeBtn = document.getElementById('free');
-freeBtn.onclick = () => { free = !free; freeBtn.textContent = free ? 'Cinematic' : 'Free camera'; if (free) { const d = camera.position.clone(); orbit.r = d.length(); orbit.th = Math.atan2(d.x, d.z); orbit.ph = Math.acos(d.y / orbit.r); } };
-let drag = null;
-canvas.addEventListener('pointerdown', e => { drag = [e.clientX, e.clientY]; canvas.setPointerCapture(e.pointerId); if (!free) freeBtn.click(); });
-canvas.addEventListener('pointermove', e => { if (!drag) return; orbit.th -= (e.clientX - drag[0]) * .006; orbit.ph = Math.min(1.45, Math.max(.25, orbit.ph - (e.clientY - drag[1]) * .005)); drag = [e.clientX, e.clientY]; });
-canvas.addEventListener('pointerup', () => drag = null);
-canvas.addEventListener('wheel', e => { if (!free) return; e.preventDefault(); orbit.r = Math.min(40, Math.max(6, orbit.r + e.deltaY * .02)); }, { passive: false });
-function freeCam() { camera.position.set(orbit.r * Math.sin(orbit.ph) * Math.sin(orbit.th), orbit.r * Math.cos(orbit.ph), orbit.r * Math.sin(orbit.ph) * Math.cos(orbit.th)); camera.lookAt(0, 1.2, 0); }
+// controls
+let playing = !matchMedia('(prefers-reduced-motion: reduce)').matches || CAPTURE, drag = null; const orb = { th: 0, ph: 1.2, r: 30 };
+const scrub = $('scrub'); SH.forEach(c => { if (c.t > 0) { const b = document.createElement('b'); b.style.left = (c.t / TOTAL * 100) + '%'; scrub.appendChild(b); } });
+scrub.onclick = e => { const r = scrub.getBoundingClientRect(); tNow = (e.clientX - r.left) / r.width * TOTAL; free = false; };
+$('play').textContent = playing ? 'Pause' : 'Play'; $('play').onclick = () => { playing = !playing; $('play').textContent = playing ? 'Pause' : 'Play'; };
+canvas.onpointerdown = e => { drag = [e.clientX, e.clientY]; free = true; canvas.setPointerCapture(e.pointerId); };
+canvas.onpointermove = e => { if (!drag) return; orb.th -= (e.clientX - drag[0]) * .005; orb.ph = Math.min(1.45, Math.max(.4, orb.ph - (e.clientY - drag[1]) * .004)); drag = [e.clientX, e.clientY]; };
+canvas.onpointerup = () => drag = null;
+canvas.ondblclick = () => free = false;
+const freeCam = () => { orb.r = 38; camera.position.set(orb.r * Math.sin(orb.ph) * Math.sin(orb.th), orb.r * Math.cos(orb.ph), orb.r * Math.sin(orb.ph) * Math.cos(orb.th)); camera.lookAt(0, 1.4, 0); };
+const FILES = [['frontend/index.html', 'The site and live demo with the gaming cursor', 1], ['backend/app/main.py', 'API: /api/ask stream, limits, history', 2], ['backend/app/search.py', 'Tavily search + page text, cached', 3],
+  ['backend/app/agent.py', 'Relevance ranking, fast path, follow-up, verify', 5], ['backend/app/browser.py', 'Chromium, robots.txt, cursor, highlight', 4], ['backend/app/llm.py', 'Gemini Flash-Lite, key rotation, caps', 5],
+  ['backend/app/db.py', 'Postgres cache, quota ledger, runs', 7], ['backend/app/config.py', 'Every limit, set from .env', 2], ['docs/EVENTS.md', 'Event contract the UI renders', 1],
+  ['docker-compose.yml', 'api + db on one e2-micro', 8], ['deploy/', 'create-vm, startup, install, set-keys, update', 8], ['backend/tests/', 'Offline end-to-end tests with a real browser', 4]];
+$('grid').innerHTML = FILES.map(([f, w, s]) => `<button class="f" type="button" data-s="${s}"><code>${f}</code><span>${w}</span><em>${SH[s].no || 'Finale'}</em></button>`).join('');
+$('grid').onclick = e => { const b = e.target.closest('.f'); if (!b) return; tNow = SH[+b.dataset.s].t + .01; free = false; screen.scrollIntoView({ behavior: 'smooth', block: 'center' }); };
 
-// credits: repo files mapped to the shot they appear in
-const FILES = [
-  ['frontend/index.html', 'The WebInfo site and live demo with the gaming cursor', 1, 'user'], ['docs/EVENTS.md', 'Event contract the UI renders', 1, 'user'],
-  ['backend/app/main.py', 'FastAPI: /api/ask stream, limits, history', 1, 'api'], ['backend/app/agent.py', 'The loop: search, browse, extract, follow, verify', 1, 'agent'],
-  ['backend/app/search.py', 'Tavily search, cached, monthly cap', 2, 'tavily'], ['backend/app/browser.py', 'Chromium navigator, robots.txt, cursor events', 3, 'chromium'],
-  ['backend/app/llm.py', 'Gemini Flash-Lite, 2-key rotation, daily caps', 4, 'gemini'], ['backend/app/db.py', 'Postgres cache, quota ledger, runs', 6, 'pg'],
-  ['backend/app/config.py', 'Every limit, set from .env', 6, 'api'], ['docker-compose.yml', 'api + db sized for an e2-micro', 7, 'vm'],
-  ['backend/Dockerfile', 'python:3.12-slim + Chromium headless shell', 7, 'vm'], ['deploy/create-vm.sh', 'Creates the free-tier VM and firewall rule', 7, 'shell'],
-  ['deploy/startup.sh', 'Boot: swap, Docker, log rotation', 7, 'vm'], ['deploy/install.sh', 'Builds and starts the containers', 7, 'vm'],
-  ['deploy/set-keys.sh', 'Hidden prompts for Gemini + Tavily keys', 7, 'vm'], ['deploy/update.sh', 'Pull and rebuild', 7, 'github'],
-  ['backend/tests/e2e_mock.py', 'Offline end-to-end test, real browser', 3, 'agent'], ['README.md', 'Overview, limits, deploy steps', 7, 'github']];
-document.getElementById('grid').innerHTML = FILES.map(([f, w, ch, id]) => `<button class="file" type="button" data-ch="${ch}"><code>${f}</code><span>${w}</span><em style="color:${hex(nodes[id].color)}">${CH[ch].eb || '07 / Deploy'} · ${nodes[id].name}</em></button>`).join('');
-document.getElementById('grid').addEventListener('click', e => { const b = e.target.closest('.file'); if (!b) return; tNow = CH[+b.dataset.ch].t + .01; lastChap = -1; if (free) freeBtn.click(); screen.scrollIntoView({ behavior: 'smooth', block: 'center' }); });
-
-if (CAPTURE) { window.__renderAt = t => { tNow = t; frame(t); return true; }; window.__ready = true; return; }
+if (CAPTURE) { window.__renderAt = t => { frame(t); return true; }; window.__total = TOTAL; window.__ready = true; return; }
 let last = performance.now();
 (function loop(now) { const dt = Math.min(.05, (now - last) / 1000); last = now; if (playing) tNow = (tNow + dt) % TOTAL; if (free) freeCam(); frame(tNow); requestAnimationFrame(loop); })(last);
 })();
