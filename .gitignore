@@ -1,5 +1,20 @@
+# secrets: never commit
 .env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.json.key
+id_rsa*
+id_ed25519*
+credentials*.json
+service-account*.json
+*.tfstate*
+
+# python / tooling
 __pycache__/
 *.pyc
 .venv/
 .pytest_cache/
+.DS_Store

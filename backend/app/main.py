@@ -1,4 +1,5 @@
 import asyncio
+import hmac
 import json
 import logging
 import time
@@ -6,7 +7,7 @@ import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi import FastAPI, Header, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -35,7 +36,7 @@ async def lifespan(app: FastAPI):
     await db.close_db()
 
 
-app = FastAPI(title="WebInfo Agent", lifespan=lifespan)
+app = FastAPI(title="WebInfo Agent", lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[o.strip() for o in get_settings().cors_origins.split(",")],
@@ -45,8 +46,16 @@ app.add_middleware(
 
 
 def _client_ip(req: Request) -> str:
-    fwd = req.headers.get("x-forwarded-for", "")
+    # X-Forwarded-For is set by the client unless a proxy you control rewrites it, so trusting it
+    # by default would let anyone dodge the per-IP limit and drain the free API quota.
+    fwd = req.headers.get("x-forwarded-for", "") if get_settings().trust_proxy else ""
     return (fwd.split(",")[0].strip() if fwd else (req.client.host if req.client else "?"))[:64]
+
+
+def _require_admin(token: str | None) -> None:
+    want = get_settings().admin_token
+    if not want or not token or not hmac.compare_digest(token, want):
+        raise HTTPException(404, "Not found")   # don't advertise that the endpoint exists
 
 
 def _sse(event: str, data: dict) -> bytes:
@@ -56,19 +65,20 @@ def _sse(event: str, data: dict) -> bytes:
 @app.get("/api/health")
 async def health():
     s = get_settings()
-    return {"ok": True, "model": get_gemini().model, "gemini_keys": len(s.gemini_keys),
-            "tavily": bool(s.tavily_api_key)}
+    return {"ok": bool(s.gemini_keys and s.tavily_api_key), "model": get_gemini().model}
 
 
 @app.get("/api/usage")
-async def usage():
+async def usage(x_admin_token: str | None = Header(None)):
+    _require_admin(x_admin_token)
     s = get_settings()
     return {"caps": {"gemini_per_key_per_day": s.gemini_daily_cap, "tavily_per_month": s.tavily_monthly_cap},
             "usage": await db.usage_summary()}
 
 
 @app.get("/api/history")
-async def history(limit: int = Query(20, le=100)):
+async def history(limit: int = Query(20, le=100), x_admin_token: str | None = Header(None)):
+    _require_admin(x_admin_token)   # other people's questions are private
     return await db.runs_recent(limit)
 
 

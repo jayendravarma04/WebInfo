@@ -10,9 +10,10 @@ from fastapi.responses import HTMLResponse, JSONResponse
 
 FAKE = 9100
 os.environ.update(GEMINI_API_KEYS="bad-key,good-key", TAVILY_API_KEY="tvly-test",
-                  ALLOW_PRIVATE_HOSTS="true", GEMINI_MIN_INTERVAL_S="0.1")
+                  ALLOW_PRIVATE_HOSTS="true", GEMINI_MIN_INTERVAL_S="0.1", ADMIN_TOKEN="test-admin")
 
 fake = FastAPI()
+ADM = {"X-Admin-Token": "test-admin"}
 calls = {"gemini": 0, "tavily": 0}
 def lorem(n): return "".join(f"<p>Paragraph {i}: " + "WebInfo test filler content to exercise scrolling and extraction. " * 6 + "</p>" for i in range(n))
 
@@ -101,8 +102,8 @@ async def main():
         print(f"\nfast path: {time.time()-t:.1f}s found={ans['found']} cite={ans['citations'][0]['page_id']} highlight={'highlight' in kinds}")
         assert ans["found"] and "highlight" in kinds
         print("\nupstream calls:", calls)
-        print("usage:", (await c.get("http://127.0.0.1:8077/api/usage")).json())
-        print("history:", [(h["question"], h["status"], h["cached"]) for h in (await c.get("http://127.0.0.1:8077/api/history")).json()])
+        print("usage:", (await c.get("http://127.0.0.1:8077/api/usage", headers=ADM)).json())
+        print("history:", [(h["question"], h["status"], h["cached"]) for h in (await c.get("http://127.0.0.1:8077/api/history", headers=ADM)).json()])
     assert calls == {"gemini": 3, "tavily": 2}, calls
     print("\nE2E OK")
 

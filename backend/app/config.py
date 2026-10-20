@@ -33,6 +33,8 @@ class Settings(BaseSettings):
     database_url: str = "postgresql://webinfo:webinfo@db:5432/webinfo"
     cors_origins: str = "*"
     allow_private_hosts: bool = False        # tests only — keeps the agent off the GCP metadata server
+    trust_proxy: bool = False                # only behind your own reverse proxy: honour X-Forwarded-For
+    admin_token: str = ""                    # blank = /api/usage and /api/history are switched off
     screenshot_quality: int = 55             # JPEG quality for streamed screenshots
     viewport_w: int = 1280
     viewport_h: int = 800

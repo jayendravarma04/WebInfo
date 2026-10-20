@@ -5,7 +5,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: webinfo
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-webinfo}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
       POSTGRES_DB: webinfo
     command: >
       postgres -c shared_buffers=32MB -c work_mem=2MB -c maintenance_work_mem=16MB
@@ -25,7 +25,7 @@ services:
     restart: unless-stopped
     env_file: .env
     environment:
-      DATABASE_URL: postgresql://webinfo:${POSTGRES_PASSWORD:-webinfo}@db:5432/webinfo
+      DATABASE_URL: postgresql://webinfo:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/webinfo
     depends_on:
       db:
         condition: service_healthy

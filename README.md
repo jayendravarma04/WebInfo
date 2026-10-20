@@ -7,7 +7,7 @@
 **A web-navigating research agent.** Describe what you need in plain language. WebInfo opens the right websites, reads the pages,
 pulls out the exact fact, and shows you where it found it, with a live view of its own browser and a breathing gaming cursor.
 
-**Live:** http://136.113.27.193 &nbsp;·&nbsp; **Film:** [`docs/architecture.html`](docs/architecture.html) &nbsp;·&nbsp; **Event contract:** [`docs/EVENTS.md`](docs/EVENTS.md)
+**Film:** [`docs/architecture.html`](docs/architecture.html) &nbsp;·&nbsp; **Event contract:** [`docs/EVENTS.md`](docs/EVENTS.md)
 
 <img src="docs/ui-hero.jpg" alt="WebInfo home page: Ask the web. Get the answer." width="100%">
 
@@ -62,15 +62,12 @@ question ─► Postgres cache (12 h)  ── hit ──► answer, zero API cal
 
 ---
 
-## Live deployment
+## How it is deployed
 | | |
 |---|---|
-| URL | http://136.113.27.193 |
-| VM | `webinfo-vm` · e2-micro · us-central1-a · 30 GB pd-standard · Debian 12 · 2 GB swap |
-| Containers | `webinfo-api-1` (FastAPI + Chromium), `webinfo-db-1` (Postgres 16) |
-| Add / rotate API keys | SSH to the VM → `sudo bash /opt/webinfo/deploy/set-keys.sh` |
-
-The external IP is ephemeral: it changes if the VM is stopped and started again.
+| VM | one e2-micro · 30 GB pd-standard · Debian 12 · 2 GB swap (Google Cloud free tier) |
+| Containers | `api` (FastAPI + Chromium), `db` (Postgres 16, not exposed to the internet) |
+| Add / rotate API keys | SSH to the VM → `sudo bash /opt/webinfo/deploy/set-keys.sh` (hidden prompts, written to a `chmod 600` `.env`) |
 
 ## Free-tier guard rails
 | Limit | Default | Where |
@@ -87,17 +84,25 @@ Model: a blank `GEMINI_MODEL` auto-selects the newest Flash-Lite via ListModels 
 Keys are never stored in the database, only a 10-character hash fingerprint for the quota ledger.
 The browser refuses private and metadata IPs (SSRF guard), skips bot walls and error pages, honours robots.txt, and page text is treated as untrusted data in the prompt.
 
+## Security
+- No secrets live in this repo. API keys are typed into hidden prompts on the server and stored only in its git-ignored `.env` (`chmod 600`); the database keeps a 10-character hash fingerprint per key, never the key.
+- Postgres is reachable only inside Docker; only port 80 is open. The VM runs with no service account and no API scopes.
+- The per-IP limit uses the real connection address (`X-Forwarded-For` is ignored unless `TRUST_PROXY=true`), so it can't be dodged with a fake header. Daily and monthly caps stop at the free-tier limits.
+- `/api/usage` and `/api/history` are off unless `ADMIN_TOKEN` is set; the interactive API docs are disabled.
+- The browser refuses private and cloud-metadata addresses, honours robots.txt, and page text is treated as untrusted input.
+- Found a problem? See [`SECURITY.md`](SECURITY.md).
+
 ## Deploy on GCP (free tier)
 1. Open **Cloud Shell** in the console, then:
    ```bash
-   git clone https://github.com/jayendravarma04/webinfo && cd webinfo   # private repo: use a GitHub token when prompted
+   git clone https://github.com/jayendravarma04/WebInfo && cd WebInfo
    gcloud config set project <YOUR_PROJECT_ID>
    bash deploy/create-vm.sh
    ```
 2. Wait about 3 minutes, then SSH in and install:
    ```bash
    gcloud compute ssh webinfo-vm --zone us-central1-a
-   sudo git clone git@github.com:jayendravarma04/WebInfo.git /opt/webinfo   # read-only deploy key
+   sudo git clone https://github.com/jayendravarma04/WebInfo /opt/webinfo
    cd /opt/webinfo && sudo bash deploy/install.sh
    sudo bash deploy/set-keys.sh      # hidden prompts for Gemini ×2 + Tavily
    ```
@@ -118,7 +123,7 @@ DATABASE_URL=postgresql://... python -m tests.ui_preview   # the full site on :8
 |---|---|
 | `frontend/index.html` | The WebInfo site from the design, with the live demo, agent log, live browser view and gaming cursor |
 | `frontend/fonts.css`, `frontend/fonts/` | Young Serif, Familjen Grotesk and JetBrains Mono, self-hosted |
-| `backend/app/main.py` | FastAPI: `/api/ask` event stream, `/api/health`, `/api/usage`, `/api/history`, rate limit |
+| `backend/app/main.py` | FastAPI: `/api/ask` event stream, `/api/health`, admin-only `/api/usage` and `/api/history`, rate limit |
 | `backend/app/agent.py` | The loop: cache, search, browse, extract, follow, verify |
 | `backend/app/browser.py` | Playwright navigator: robots.txt, SSRF guard, bot-wall detection, screenshots, cursor events, highlight |
 | `backend/app/llm.py` | Gemini REST client: model auto-pick, key rotation, pacing, daily caps |
