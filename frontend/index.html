@@ -3,64 +3,518 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>WebInfo — dev harness</title>
-<!-- TEMPORARY test harness. The real UI/UX will replace this file. -->
+<title>WebInfo — Ask the web. Get the answer.</title>
+<meta name="description" content="WebInfo opens the right websites, reads the pages, pulls out the exact fact, and shows you where it found it.">
+<link rel="stylesheet" href="/static/fonts.css">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Familjen+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
 <style>
-  :root { --bg:#0b0d12; --fg:#e6e8ee; --muted:#8a90a2; --accent:#7cf7c4; --card:#151924; }
-  * { box-sizing: border-box; }
-  body { margin:0; font:14px/1.5 system-ui, sans-serif; background:var(--bg); color:var(--fg); }
-  main { max-width:1100px; margin:0 auto; padding:16px; display:grid; gap:12px; }
-  form { display:flex; gap:8px; }
-  input { flex:1; padding:10px 12px; border-radius:8px; border:1px solid #2a3040; background:var(--card); color:var(--fg); }
-  button { padding:10px 16px; border:0; border-radius:8px; background:var(--accent); color:#000; font-weight:600; cursor:pointer; }
-  #stage { position:relative; width:100%; aspect-ratio:1280/800; background:var(--card); border-radius:10px; overflow:hidden; }
-  #shot { width:100%; height:100%; object-fit:cover; display:block; transition:opacity .25s; }
-  #url { position:absolute; top:8px; left:8px; right:8px; padding:4px 10px; background:#000a; border-radius:6px; font-size:12px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  #cursor { position:absolute; width:22px; height:22px; margin:-11px 0 0 -11px; border-radius:50%;
-    border:2px solid var(--accent); box-shadow:0 0 12px var(--accent);
-    transition:left .45s cubic-bezier(.22,1,.36,1), top .45s cubic-bezier(.22,1,.36,1);
-    animation:breathe 1.6s ease-in-out infinite; pointer-events:none; left:50%; top:50%; }
-  #cursor.select { background:#7cf7c455; }
-  @keyframes breathe { 50% { transform:scale(1.35); box-shadow:0 0 22px var(--accent); } }
-  #hl { position:absolute; border:2px solid var(--accent); background:#7cf7c422; border-radius:4px; display:none; }
-  #log { font:12px ui-monospace, monospace; color:var(--muted); max-height:180px; overflow:auto; background:var(--card); padding:8px; border-radius:8px; }
-  #answer { background:var(--card); padding:12px; border-radius:8px; white-space:pre-wrap; }
+html{scroll-behavior:smooth}body{margin:0;background:#16150F}
+*{box-sizing:border-box}[hidden]{display:none!important}
+a{color:var(--ac,#E8452C);text-decoration:none}a:hover{color:var(--bl,#2B3FD6)}
+::selection{background:var(--ac,#E8452C);color:var(--bg,#F1EBDD)}
+input{outline:none}input::placeholder{color:#8a8473}
+button:focus-visible,a:focus-visible,input:focus-visible,[role=button]:focus-visible{outline:3px solid var(--ac);outline-offset:3px}
+@property --a{syntax:"<angle>";initial-value:0deg;inherits:false}
+@keyframes spinA{to{--a:360deg}}
+.rgb{position:relative;z-index:0;padding:3px;background:conic-gradient(from var(--a),#ff2d55,#ff7a1a,#2dff8f,#2d9bff,#b02dff,#ff2d55);animation:spinA 5s linear infinite}
+.rgb:before{content:"";position:absolute;inset:0;border-radius:inherit;background:inherit;filter:blur(18px);opacity:.55;z-index:-1}
+@keyframes orbIn{from{transform:scale(0) rotate(-90deg);opacity:0}to{transform:none;opacity:1}}
+@keyframes rise{from{transform:translateY(110%) rotate(4deg);opacity:0}to{transform:none;opacity:1}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(26px)}to{opacity:1;transform:none}}
+@keyframes marq{to{transform:translateX(-50%)}}
+@keyframes bob{0%,100%{translate:0 0}50%{translate:0 -12px}}
+@keyframes stepin{from{opacity:0;transform:translateX(-16px)}to{opacity:1;transform:none}}
+@keyframes blink{50%{opacity:0}}
+[data-rv]{opacity:0;transform:translateY(46px);transition:opacity calc(.9s*var(--mo,1)) cubic-bezier(.2,.7,.2,1),transform calc(.9s*var(--mo,1)) cubic-bezier(.2,.7,.2,1)}
+[data-rv].in{opacity:1;transform:none}
+.btn{transition:transform .25s,box-shadow .25s}.btn:hover{transform:translate(-3px,-3px)}
+.nv{position:relative;color:var(--ink,#1B1A17)}.nv:after{content:"";position:absolute;left:0;bottom:-4px;height:2px;width:0;background:var(--ac,#E8452C);transition:width .3s}.nv:hover:after{width:100%}.nv:hover{color:var(--ink,#1B1A17)}
+.card{transition:transform .4s cubic-bezier(.2,.7,.2,1),box-shadow .4s}.card:hover{transform:translateY(-10px) rotate(-.6deg);box-shadow:12px 14px 0 var(--ink,#1B1A17)!important}
+.faqb{transition:max-height .5s cubic-bezier(.2,.7,.2,1),opacity .4s}
+@media(max-width:900px){.hide-m{display:none!important}.stack{grid-template-columns:1fr!important}}
+
+/* ---------- shared type ---------- */
+.mono{font-family:'JetBrains Mono',monospace}
+.disp{font-family:var(--disp,'Young Serif',serif);font-weight:var(--dw,400);letter-spacing:var(--dt,-.02em)}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:14px;letter-spacing:.14em;text-transform:uppercase}
+.gold{font-family:'Young Serif',serif;font-style:italic;background:linear-gradient(135deg,#FFE29A 0%,#F2B544 38%,#C9831F 62%,#F6CF7A 100%);-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent}
+
+/* ---------- live browser stage (new: the agent's eyes) ---------- */
+.live{border-radius:24px}
+.live-in{background:#0E0D0A;border-radius:21px;overflow:hidden}
+.chrome{display:flex;align-items:center;gap:10px;padding:10px 14px;background:#1d1c16;border-bottom:1px solid #2c2a22}
+.dots{display:flex;gap:6px}.dots i{width:10px;height:10px;border-radius:50%;background:#3a382e;display:block}
+.dots i:nth-child(1){background:#FF6A4A}.dots i:nth-child(2){background:#F2B544}.dots i:nth-child(3){background:#7FD6C2}
+.addr{flex:1;min-width:0;font:12px 'JetBrains Mono',monospace;color:#cfc8b6;background:#0E0D0A;border-radius:99px;padding:6px 12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.addr b{color:var(--c1,#7FD6C2);font-weight:500}
+.tabs{font:11px 'JetBrains Mono',monospace;color:#8a8473;white-space:nowrap}
+.stage{position:relative;aspect-ratio:1280/800;max-width:100%;background:radial-gradient(120% 80% at 50% 0%,#24221a,#0E0D0A);overflow:hidden}
+.stage img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity calc(.35s*var(--mo,1)),filter .4s,transform calc(.6s*var(--mo,1)) cubic-bezier(.2,.7,.2,1)}
+.stage img.on{opacity:1}
+.stage img.scan{filter:saturate(.85) brightness(.92)}
+.stage .idle{position:absolute;inset:0;display:grid;place-items:center;text-align:center;color:#8a8473;font:13px 'JetBrains Mono',monospace;padding:20px}
+.stage .idle span{display:block;font-family:var(--disp);font-size:clamp(20px,2.4vw,30px);color:#cfc8b6;margin-bottom:8px;letter-spacing:var(--dt)}
+.scanline{position:absolute;left:0;right:0;height:120px;top:-120px;background:linear-gradient(180deg,transparent,rgba(127,214,194,.10),transparent);pointer-events:none}
+.stage.busy .scanline{animation:scan calc(2.4s*var(--mo,1)) linear infinite}
+@keyframes scan{to{top:100%}}
+/* gaming cursor */
+.cur{position:absolute;left:50%;top:50%;width:0;height:0;pointer-events:none;z-index:4;transition:left calc(.55s*var(--mo,1)) cubic-bezier(.22,1,.36,1),top calc(.55s*var(--mo,1)) cubic-bezier(.22,1,.36,1);opacity:0}
+.cur.on{opacity:1}
+.cur .ring{position:absolute;left:-17px;top:-17px;width:34px;height:34px;border-radius:50%;border:2px solid var(--ac);box-shadow:0 0 14px var(--ac),inset 0 0 10px color-mix(in srgb,var(--ac) 45%,transparent);animation:breathe 1.8s ease-in-out infinite}
+.cur .ticks{position:absolute;left:-24px;top:-24px;width:48px;height:48px;animation:spin 6s linear infinite}
+.cur .ticks i{position:absolute;background:var(--ac);border-radius:2px;box-shadow:0 0 8px var(--ac)}
+.cur .ticks i:nth-child(1){left:22px;top:0;width:4px;height:9px}.cur .ticks i:nth-child(2){left:22px;bottom:0;width:4px;height:9px}
+.cur .ticks i:nth-child(3){top:22px;left:0;width:9px;height:4px}.cur .ticks i:nth-child(4){top:22px;right:0;width:9px;height:4px}
+.cur .dot{position:absolute;left:-4px;top:-4px;width:8px;height:8px;border-radius:50%;background:#fff;box-shadow:0 0 10px #fff,0 0 22px var(--ac)}
+.cur .lab{position:absolute;left:26px;top:14px;max-width:260px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font:11px 'JetBrains Mono',monospace;color:#1B1A17;background:var(--c1,#7FD6C2);padding:3px 8px;border-radius:6px;opacity:0;transform:translateY(4px);transition:opacity .25s,transform .25s}
+.cur .lab.on{opacity:1;transform:none}
+.cur.sel .ring{border-color:#fff;box-shadow:0 0 18px #fff,0 0 30px var(--ac)}
+@keyframes breathe{0%,100%{transform:scale(.82);opacity:.75}50%{transform:scale(1.18);opacity:1}}
+@keyframes spin{to{transform:rotate(360deg)}}
+.trail{position:absolute;width:6px;height:6px;margin:-3px 0 0 -3px;border-radius:50%;background:var(--ac);pointer-events:none;z-index:3;opacity:0;transition:left calc(.75s*var(--mo,1)) cubic-bezier(.22,1,.36,1),top calc(.75s*var(--mo,1)) cubic-bezier(.22,1,.36,1),opacity .4s}
+.ripple{position:absolute;width:10px;height:10px;margin:-5px 0 0 -5px;border-radius:50%;border:2px solid var(--ac);pointer-events:none;z-index:3;animation:rip .8s ease-out forwards}
+@keyframes rip{to{transform:scale(7);opacity:0}}
+.hl{position:absolute;border:2px solid var(--ac);border-radius:6px;background:color-mix(in srgb,var(--ac) 16%,transparent);box-shadow:0 0 0 9999px rgba(10,9,7,.42),0 0 24px var(--ac);display:none;z-index:2;transition:all .4s cubic-bezier(.2,.7,.2,1)}
+.hl.on{display:block;animation:hlIn calc(.6s*var(--mo,1)) cubic-bezier(.2,.7,.2,1)}
+@keyframes hlIn{from{opacity:0;transform:scale(1.06)}to{opacity:1;transform:none}}
+.film{display:flex;gap:8px;padding:10px 12px;background:#14130e;overflow-x:auto;scrollbar-width:thin}
+.film button{flex:0 0 auto;border:1px solid #2c2a22;background:#1d1c16;color:#cfc8b6;font:11px 'JetBrains Mono',monospace;padding:6px 10px;border-radius:8px;cursor:pointer;max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.film button.on{border-color:var(--c1);color:var(--c1)}
+.film button.err{opacity:.5;text-decoration:line-through}
+
+/* ---------- feel switcher (design's Mood / Typeface / Motion props) ---------- */
+.feel{display:flex;flex-wrap:wrap;gap:14px;align-items:center;font:12px 'JetBrains Mono',monospace}
+.seg{display:inline-flex;border:2px solid var(--ink);border-radius:99px;overflow:hidden}
+.seg button{border:0;background:transparent;color:var(--ink);font:12px 'JetBrains Mono',monospace;padding:6px 12px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
 </style>
 </head>
 <body>
-<main>
-  <form id="f"><input id="q" placeholder="Ask anything, e.g. What is the current price of a Raspberry Pi 5 8GB on raspberrypi.com?" required><button>Ask</button></form>
-  <div id="stage"><img id="shot" alt=""><div id="url">idle</div><div id="hl"></div><div id="cursor"></div></div>
-  <div id="answer">—</div>
-  <div id="log"></div>
-</main>
+<div id="root" style="font-family:'Familjen Grotesk',sans-serif;color:var(--ink,#1B1A17);background:var(--bg,#F1EBDD);min-height:100vh;position:relative;overflow-x:hidden;transition:background .6s,color .6s">
+
+<!-- loader -->
+<div id="loader" style="position:fixed;inset:0;z-index:200;pointer-events:all;transform:translateY(0);transition:transform 1s cubic-bezier(.76,0,.2,1);will-change:transform">
+<div id="loaderIn" style="position:absolute;inset:0 0 -1px 0;background:var(--ink,#1B1A17);color:var(--bg,#F1EBDD);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:34px;border-radius:0;transition:border-radius 1s cubic-bezier(.76,0,.2,1)">
+<div class="lfade" style="display:flex;align-items:center;gap:clamp(10px,1.4vw,20px);transition:opacity .35s">
+<span class="gold" style="font-size:clamp(48px,9vw,120px);line-height:1;padding:0 .08em .12em 0;animation:orbIn .9s cubic-bezier(.2,.8,.2,1) both;display:inline-block">JR</span>
+<div id="lLetters" class="disp" style="display:flex;font-size:clamp(48px,9vw,120px);line-height:1;overflow:hidden;padding-bottom:.12em"></div>
+</div>
+<div class="lfade" style="width:min(320px,60vw);transition:opacity .35s">
+<div style="height:3px;background:rgba(128,128,128,.35);border-radius:3px;overflow:hidden"><div id="lBar" style="height:100%;width:0%;background:var(--ac,#E8452C);transition:width .2s linear"></div></div>
+<div class="mono" style="display:flex;justify-content:space-between;margin-top:12px;font-size:12px;letter-spacing:.14em;text-transform:uppercase;opacity:.75"><span id="lLabel">Opening pages</span><span id="lPct">0%</span></div>
+</div></div></div>
+
+<!-- nav -->
+<div style="position:fixed;top:0;left:0;right:0;z-index:50;display:flex;justify-content:space-between;align-items:center;padding:18px clamp(20px,4vw,56px);background:linear-gradient(var(--bg,#F1EBDD) 60%,transparent)">
+<a href="#top" data-go="top" class="disp" style="display:flex;align-items:center;gap:10px;color:var(--ink,#1B1A17);font-size:26px"><span class="gold" style="font-weight:400;font-size:30px;letter-spacing:-.04em;line-height:1;padding:2px 6px 4px 0;filter:drop-shadow(0 1px 0 rgba(120,70,0,.35))">JR</span>WebInfo</a>
+<div style="display:flex;gap:clamp(18px,3vw,40px);align-items:center;font-weight:500;font-size:16px">
+<a href="#how" data-go="how" class="nv hide-m">How it works</a>
+<a href="#demo" data-go="demo" class="nv hide-m">Demo</a>
+<a href="#trust" data-go="trust" class="nv hide-m">Testers</a>
+<a href="#faq" data-go="faq" class="nv hide-m">FAQ</a>
+<a href="#demo" data-go="demo" class="btn" style="background:var(--ink,#1B1A17);color:var(--bg,#F1EBDD);padding:11px 22px;border-radius:99px;font-weight:600;box-shadow:4px 4px 0 var(--ac,#E8452C)">Try the demo</a>
+</div></div>
+
+<div style="position:relative;z-index:5">
+
+<!-- HERO -->
+<section id="top" class="stack" style="max-width:1320px;margin:0 auto;padding:140px clamp(20px,4vw,56px) 70px;display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,.8fr);gap:40px;align-items:center;min-height:100vh">
+<div>
+<div class="eyebrow" style="color:var(--ac,#E8452C);margin-bottom:26px;display:flex;gap:12px;align-items:center;animation:fadeUp .9s 3s both"><span style="width:44px;height:2px;background:var(--ac,#E8452C);display:inline-block"></span>A web-navigating research agent</div>
+<h1 id="heroH1" class="disp" style="font-size:clamp(50px,7.4vw,118px);line-height:.97;margin:0"></h1>
+<p style="font-size:clamp(18px,1.6vw,23px);line-height:1.5;max-width:30em;margin:32px 0 40px;animation:fadeUp 1s 3.4s both">Describe what you need in plain language. WebInfo opens the right websites, reads the pages, pulls out the exact fact, and shows you where it found it.</p>
+<div style="display:flex;gap:16px;flex-wrap:wrap;animation:fadeUp 1s 3.6s both">
+<a href="#demo" data-go="demo" class="btn" style="background:var(--ac,#E8452C);color:#fff;padding:18px 32px;border-radius:99px;font-weight:600;font-size:18px;border:3px solid var(--ink,#1B1A17);box-shadow:6px 6px 0 var(--ink,#1B1A17)">Ask the agent →</a>
+<a href="#how" data-go="how" class="btn" style="color:var(--ink,#1B1A17);padding:18px 32px;border-radius:99px;font-weight:600;font-size:18px;border:3px solid var(--ink,#1B1A17)">See how it works</a>
+</div></div>
+<!-- sample answer cards -->
+<div class="hide-m" style="position:relative;height:460px;animation:fadeUp 1.2s 3.7s both">
+<div class="rgb" style="position:absolute;top:10px;right:0;left:6%;border-radius:26px;transform:rotate(3deg);animation:spinA 5s linear infinite,bob 9s ease-in-out infinite"><div style="background:var(--c1,#7FD6C2);color:#1B1A17;border-radius:23px;padding:28px">
+<div class="mono" style="font-size:12px;letter-spacing:.12em;margin-bottom:12px">YOU ASKED</div>
+<div style="font-size:19px;line-height:1.35;margin-bottom:20px">What is the return window at Northwind Outfitters?</div>
+<div class="disp" style="font-size:38px;line-height:1.05">45 days from delivery.</div>
+</div></div>
+<div style="position:absolute;bottom:20px;left:0;right:14%;background:var(--c2,#F6F1E4);color:#1B1A17;border:3px solid var(--ink,#1B1A17);border-radius:20px;box-shadow:6px 8px 0 var(--ink,#1B1A17);padding:22px;transform:rotate(-4deg);animation:bob 11s ease-in-out -4s infinite">
+<div class="mono" style="font-size:12px;color:#2B3FD6;word-break:break-all;margin-bottom:6px">northwind-outfitters.example/help/returns</div>
+<div style="font-size:16px;font-style:italic;line-height:1.4">“Orders may be returned within 45 days of the delivery date.”</div>
+</div>
+<div class="mono" style="position:absolute;bottom:0;right:2%;background:var(--ink,#1B1A17);color:var(--bg,#F1EBDD);border-radius:99px;padding:12px 20px;font-size:13px;transform:rotate(5deg)">verified 2/2 ✓</div>
+</div>
+</section>
+
+<!-- marquee -->
+<div style="background:var(--ink,#1B1A17);color:var(--bg,#F1EBDD);overflow:hidden;padding:22px 0;transform:rotate(-1.2deg);margin:0 -2vw">
+<div id="marq" class="disp" style="display:flex;width:max-content;animation:marq 34s linear infinite;font-size:34px;gap:48px;white-space:nowrap;letter-spacing:normal"></div></div>
+
+<!-- LOOP -->
+<section id="how" style="max-width:1320px;margin:0 auto;padding:150px clamp(20px,4vw,56px) 80px">
+<div data-rv class="eyebrow" style="color:var(--bl,#2B3FD6)">01 / The loop</div>
+<h2 data-rv class="disp" style="font-size:clamp(40px,6vw,92px);line-height:1;margin:18px 0 64px;max-width:14ch">Four moves, every question.</h2>
+<div id="loop" class="stack" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:24px"></div>
+</section>
+
+<!-- DEMO -->
+<section id="demo" style="margin:80px 0 0;background:var(--ink,#1B1A17);color:var(--bg,#F1EBDD);padding:130px clamp(20px,4vw,56px)">
+<div style="max-width:1180px;margin:0 auto">
+<div data-rv class="eyebrow" style="color:var(--c1,#7FD6C2)">02 / Live demo</div>
+<h2 data-rv class="disp" style="font-size:clamp(40px,6.4vw,100px);line-height:.98;margin:16px 0 40px">What do you need to find?</h2>
+<form id="askForm" data-rv class="rgb" style="border-radius:24px"><div style="background:var(--bg,#F1EBDD);color:var(--ink,#1B1A17);border-radius:21px;padding:14px;display:flex;gap:12px;flex-wrap:wrap">
+<label for="q" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Your question</label>
+<input id="q" name="q" maxlength="500" autocomplete="off" placeholder="Ask in plain language…" style="flex:1;min-width:220px;border:0;background:transparent;font:500 clamp(18px,2vw,24px) 'Familjen Grotesk',sans-serif;padding:14px 16px;color:var(--ink,#1B1A17)">
+<button id="runBtn" type="submit" class="btn" style="border:0;background:var(--ac,#E8452C);color:#fff;font:700 18px 'Familjen Grotesk',sans-serif;padding:14px 30px;border-radius:14px;cursor:pointer">Find it</button>
+</div></form>
+<div id="chips" style="display:flex;gap:10px;flex-wrap:wrap;margin:24px 0 10px"></div>
+<div class="mono" style="font-size:12px;opacity:.7;margin-bottom:44px">Live run on the real web: the agent searches, opens real pages in its own browser and quotes what it read. Each run is capped at a few pages to protect free API quotas.</div>
+
+<div id="runArea" hidden>
+<div class="stack" style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.35fr);gap:28px;align-items:start">
+<div style="border:2px solid rgba(128,128,128,.5);border-radius:22px;padding:28px;font-family:'JetBrains Mono',monospace;font-size:14px;line-height:1.5;min-height:200px;min-width:0">
+<div style="color:var(--c1,#7FD6C2);margin-bottom:16px;letter-spacing:.1em;display:flex;justify-content:space-between;gap:10px"><span>AGENT LOG</span><span id="clock" style="opacity:.7">0.0s</span></div>
+<div id="log"></div>
+<div id="working" style="padding-top:12px;color:var(--ac,#E8452C);animation:blink 1s infinite">▍working</div>
+</div>
+<div style="min-width:0">
+<div class="rgb live"><div class="live-in">
+<div class="chrome"><div class="dots"><i></i><i></i><i></i></div><div class="addr" id="addr">about:blank</div><div class="tabs" id="tabs">LIVE VIEW</div></div>
+<div class="stage" id="stage"><div class="idle" id="idle"><div><span>Waiting for a page…</span>The agent's own browser shows up here.</div></div>
+<img id="shotA" alt=""><img id="shotB" alt="">
+<div class="scanline"></div><div class="hl" id="hl"></div>
+<div class="trail" id="tr1"></div><div class="trail" id="tr2"></div><div class="trail" id="tr3"></div>
+<div class="cur" id="cur"><div class="ticks"><i></i><i></i><i></i><i></i></div><div class="ring"></div><div class="dot"></div><div class="lab" id="curLab"></div></div>
+</div>
+<div class="film" id="film" aria-label="Pages visited"></div>
+</div></div>
+</div>
+</div>
+<div id="answerWrap" hidden style="margin-top:28px">
+<div class="rgb" style="border-radius:25px;animation:spinA 5s linear infinite,fadeUp .8s both"><div style="background:var(--c1,#7FD6C2);color:#1B1A17;border-radius:22px;padding:34px">
+<div class="mono" style="font-size:13px;letter-spacing:.12em;margin-bottom:14px;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><span>ANSWER</span><span id="ansMeta"></span></div>
+<div id="ansHead" class="disp" style="font-size:clamp(26px,3vw,40px);line-height:1.12;margin-bottom:16px"></div>
+<div id="ansBody" style="font-size:18px;line-height:1.5;margin-bottom:22px;max-width:60em"></div>
+<div id="ansSrc"></div>
+</div></div></div>
+</div>
+</div></section>
+
+<!-- PRINCIPLES -->
+<section style="max-width:1320px;margin:0 auto;padding:150px clamp(20px,4vw,56px) 60px">
+<div class="stack" style="display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:70px;align-items:start">
+<div data-rv style="position:sticky;top:120px"><div class="eyebrow" style="color:var(--bl,#2B3FD6);margin-bottom:18px">03 / Principles</div>
+<h2 class="disp" style="font-size:clamp(40px,5.4vw,84px);line-height:1;margin:0 0 22px">Every answer <i style="color:var(--ac,#E8452C)">shows its work.</i></h2>
+<p style="font-size:20px;line-height:1.55;margin:0;max-width:28em">Each result carries the page it came from and the passage it was read from. When a site doesn't say, WebInfo tells you instead of guessing.</p></div>
+<div id="principles" style="display:flex;flex-direction:column;gap:22px"></div>
+</div></section>
+
+<!-- TESTIMONIALS -->
+<section id="trust" style="max-width:1320px;margin:0 auto;padding:130px clamp(20px,4vw,56px) 60px">
+<h2 data-rv class="disp" style="font-size:clamp(38px,5vw,76px);line-height:1;margin:0 0 10px">What early testers say.</h2>
+<div class="mono" style="font-size:12px;opacity:.65;margin-bottom:48px">Placeholder quotes. Replace with real customer feedback.</div>
+<div id="quotes" class="stack" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px"></div>
+</section>
+
+<!-- FAQ -->
+<section id="faq" style="max-width:960px;margin:0 auto;padding:130px clamp(20px,4vw,56px) 60px">
+<h2 data-rv class="disp" style="font-size:clamp(38px,5vw,76px);line-height:1;margin:0 0 40px">Questions</h2>
+<div id="faqs"></div>
+<div style="border-top:3px solid var(--ink,#1B1A17)"></div>
+</section>
+
+<!-- CTA -->
+<section style="margin:80px 0 0;background:var(--ac,#E8452C);border-top:3px solid var(--ink,#1B1A17);border-bottom:3px solid var(--ink,#1B1A17);padding:130px clamp(20px,4vw,56px);text-align:center">
+<h2 data-rv class="disp" style="font-size:clamp(44px,8vw,130px);line-height:.95;margin:0 auto 40px;max-width:12ch;color:#fff">Stop tab-hunting.</h2>
+<a data-rv href="#demo" data-go="demo" class="btn" style="display:inline-block;background:#F6F1E4;color:#1B1A17;padding:20px 40px;border-radius:99px;font-weight:700;font-size:20px;border:3px solid #1B1A17;box-shadow:6px 6px 0 #1B1A17">Run a question</a>
+</section>
+
+<div style="padding:34px clamp(20px,4vw,56px);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;font-size:15px">
+<span class="disp" style="font-size:20px">WebInfo</span>
+<div class="feel" aria-label="Look and feel">
+<span>Mood</span><div class="seg" data-feel="mood"></div>
+<span>Type</span><div class="seg" data-feel="typeface"></div>
+<span>Motion</span><div class="seg" data-feel="motion"></div>
+</div>
+<span>Intelligent web information retrieval.</span></div>
+</div></div>
+
 <script>
-const $ = id => document.getElementById(id);
-let es, W = 1280, H = 800, queue = [], busy = false;
-const log = t => { $('log').textContent = t + '\n' + $('log').textContent; };
-const pct = (v, m) => (v / m * 100) + '%';
-// events are replayed with small delays so the cursor visibly travels
-function pump() {
-  if (busy || !queue.length) return; busy = true;
-  const [ev, d] = queue.shift(); handle(ev, d);
-  setTimeout(() => { busy = false; pump(); }, ev === 'cursor' ? 380 : 60);
-}
-function handle(ev, d) {
-  if (ev === 'screenshot') { W = d.width; H = d.height; $('shot').src = d.image; $('url').textContent = d.url; $('hl').style.display = 'none'; }
-  else if (ev === 'cursor') { $('cursor').style.left = pct(d.x, W); $('cursor').style.top = pct(d.y, H); $('cursor').classList.toggle('select', d.action === 'select'); }
-  else if (ev === 'highlight') { const s = $('hl').style; s.left = pct(d.x, W); s.top = pct(d.y, H); s.width = pct(d.w, W); s.height = pct(d.h, H); s.display = 'block'; }
-  else if (ev === 'navigate') $('url').textContent = '→ ' + d.url;
-  else if (ev === 'answer') $('answer').textContent = d.answer + '\n\n' + d.citations.map(c => '• ' + c.title + '\n  ' + c.url + '\n  "' + c.quote + '"').join('\n') + (d.cached ? '\n\n(cached)' : '');
-  else if (ev === 'error') $('answer').textContent = '⚠ ' + d.message;
-  if (ev !== 'screenshot') log(ev + ' ' + JSON.stringify(d).slice(0, 160));
-}
-$('f').onsubmit = e => {
-  e.preventDefault(); es && es.close(); queue = []; $('answer').textContent = 'Working…'; $('log').textContent = '';
-  es = new EventSource('/api/ask?q=' + encodeURIComponent($('q').value));
-  ['run','status','search_results','navigate','screenshot','cursor','page_read','page_error','highlight','answer','error','done']
-    .forEach(n => es.addEventListener(n, m => { queue.push([n, JSON.parse(m.data)]); pump(); if (n === 'done') es.close(); }));
-  es.onerror = () => { log('stream closed'); es.close(); };
+(() => {
+'use strict';
+// ---------- design tokens (from the design's Feel props) ----------
+const MOODS = {
+  Paper:    ['#F1EBDD', '#1B1A17', '#E8452C', '#2B3FD6', '#7FD6C2', '#F6F1E4', '#A9B89A', '#8fa0ff'],
+  Midnight: ['#16150F', '#F1EBDD', '#FF6A4A', '#9BA9FF', '#7FD6C2', '#F1EBDD', '#A9B89A', '#8fa0ff'],
+  Ocean:    ['#E3EEF3', '#10202B', '#F0502F', '#1F5FBF', '#6FD3C0', '#F4FAFC', '#B7A6F2', '#7FB7FF']
 };
+const FONTS = {
+  Editorial: ["'Young Serif',serif", '400', '-.03em'],
+  Modern:    ["'Familjen Grotesk',sans-serif", '700', '-.05em'],
+  Technical: ["'JetBrains Mono',monospace", '500', '-.06em']
+};
+const MOTIONS = { Still: .01, Calm: 1, Cinematic: 2 };
+const store = { get(k, d) { try { return localStorage.getItem('wi.' + k) || d; } catch { return d; } },
+                set(k, v) { try { localStorage.setItem('wi.' + k, v); } catch {} } };
+const feel = { mood: store.get('mood', 'Midnight'), typeface: store.get('typeface', 'Editorial'), motion: store.get('motion', 'Cinematic') };
+const root = document.getElementById('root');
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+let MO = MOTIONS[feel.motion] ?? 1;
+
+function applyFeel() {
+  const m = MOODS[feel.mood] || MOODS.Paper, f = FONTS[feel.typeface] || FONTS.Editorial;
+  MO = MOTIONS[feel.motion] ?? 1;
+  const vars = { '--bg': m[0], '--ink': m[1], '--ac': m[2], '--bl': m[3], '--c1': m[4], '--c2': m[5], '--c3': m[6], '--c4': m[7],
+                 '--disp': f[0], '--dw': f[1], '--dt': f[2], '--mo': MO };
+  for (const [k, v] of Object.entries(vars)) root.style.setProperty(k, v);
+  document.body.style.background = m[0];
+  document.querySelectorAll('.seg').forEach(seg => seg.querySelectorAll('button').forEach(b =>
+    b.setAttribute('aria-pressed', String(feel[seg.dataset.feel] === b.textContent))));
+  renderHero(); renderLists();
+}
+
+// ---------- static sections ----------
+function renderHero() {
+  const m = MOODS[feel.mood] || MOODS.Paper, ink = m[1], ac = m[2];
+  const hw = [['Ask', ink, 'normal'], ['the', ink, 'normal'], ['web.', ac, 'italic'], ['Get', ink, 'normal'], ['the', ink, 'normal'], ['answer.', m[3], 'italic']];
+  $('heroH1').innerHTML = hw.map((w, i) => `<span style="display:inline-block;overflow:hidden;vertical-align:top;padding:0 .1em .12em 0;margin-right:.1em"><span style="display:inline-block;animation:rise 1s cubic-bezier(.2,.8,.2,1) both;animation-delay:${1.7 + (.1 + i * .1) * Math.max(MO, .3)}s;color:${w[1]};font-style:${w[2]}">${w[0]}</span></span>`).join('');
+}
+let listsDone = false;
+function renderLists() {
+  const m = MOODS[feel.mood] || MOODS.Paper;
+  const loop = [['01', 'Understand', 'Your sentence becomes a plan: what to find, where it likely lives, how to know it’s right.', m[4]],
+                ['02', 'Navigate', 'WebInfo opens pages, follows links, handles menus and search boxes like a person would.', m[5]],
+                ['03', 'Extract', 'It reads the page and lifts out the specific value, date or passage you asked for.', m[6]],
+                ['04', 'Verify', 'A second source or a second pass confirms it. Then you get the answer with its links.', m[7]]];
+  const principles = [['Show the source', 'Every answer links to the page and quotes the passage it came from.', m[4]],
+                      ['Say when unsure', 'If a site is silent or sources disagree, the answer says so.', m[5]],
+                      ['Read, don’t guess', 'Facts come from page content, not from memory of what a site usually says.', m[7]],
+                      ['Stay polite', 'Respects robots rules, paces its requests, and never signs in or submits on your behalf.', m[6]]];
+  const quotes = [['I used to open eleven tabs to compare a policy. Now I read one answer and click the quote.', 'Maya R.', 'Operations lead', m[4], -1.2],
+                  ['It told me a page didn’t list the price instead of inventing one. That earned my trust.', 'Daniel O.', 'Procurement analyst', m[6], .8],
+                  ['The cited passage is the feature. I can verify in five seconds.', 'Priya S.', 'Research manager', m[7], -.6]];
+  const keepIn = listsDone ? ' in' : '';
+  $('loop').innerHTML = loop.map((l, i) => `<div data-rv class="card${keepIn}" style="background:${l[3]};color:#1B1A17;border:3px solid var(--ink,#1B1A17);border-radius:22px;padding:30px 26px 34px;min-height:300px;box-shadow:6px 8px 0 var(--ink,#1B1A17);transition-delay:${i * .12}s">
+    <div class="disp" style="font-size:84px;line-height:1">${l[0]}</div><div class="disp" style="font-size:30px;margin:56px 0 10px">${l[1]}</div><div style="font-size:17px;line-height:1.45">${l[2]}</div></div>`).join('');
+  $('principles').innerHTML = principles.map(p => `<div data-rv class="card${keepIn}" style="background:${p[2]};color:#1B1A17;border:3px solid var(--ink,#1B1A17);border-radius:22px;padding:30px 32px;box-shadow:6px 8px 0 var(--ink,#1B1A17)">
+    <div class="disp" style="font-size:30px;margin-bottom:10px">${p[0]}</div><div style="font-size:18px;line-height:1.5">${p[1]}</div></div>`).join('');
+  $('quotes').innerHTML = quotes.map((q, i) => `<div data-rv class="${keepIn.trim()}" style="background:${q[3]};color:#1B1A17;border:3px solid var(--ink,#1B1A17);border-radius:22px;padding:32px;box-shadow:6px 8px 0 var(--ink,#1B1A17);display:flex;flex-direction:column;justify-content:space-between;gap:34px;transition-delay:${i * .12}s;transform:rotate(${q[4]}deg)">
+    <div class="disp" style="font-size:24px;line-height:1.28">“${q[0]}”</div><div><div style="font-weight:700;font-size:16px">${q[1]}</div><div style="font-size:15px">${q[2]}</div></div></div>`).join('');
+  if (listsDone) observeReveals();
+}
+function renderOnce() {
+  $('lLetters').innerHTML = 'WebInfo'.split('').map((c, k) => `<span style="display:inline-block;animation:rise .9s cubic-bezier(.2,.8,.2,1) both;animation-delay:${.25 + k * .07}s">${c}</span>`).join('');
+  const marquee = ['Navigate', 'Read', 'Extract', 'Verify', 'Cite', 'Navigate', 'Read', 'Extract', 'Verify', 'Cite'];
+  $('marq').innerHTML = marquee.map(m => `<span style="display:flex;gap:48px;align-items:center">${m}<span style="color:var(--ac,#E8452C)">✺</span></span>`).join('');
+  const faqData = [
+    ['Does WebInfo browse the live web?', 'Yes. The demo on this page is live: the agent searches the web, opens real pages in its own headless browser, reads them and quotes the passage it used. Each run is limited to a few pages so the free API quotas last.'],
+    ['How do I know an answer is right?', 'Each answer links to the pages it used and quotes the passage. Where possible it confirms the value on a second page.'],
+    ['What happens when a site doesn’t have the answer?', 'WebInfo says so and lists what it checked, rather than filling the gap with a guess.'],
+    ['Can it sign in or submit forms for me?', 'No. It reads public pages only and does not log in, purchase or submit forms on your behalf.'],
+    ['Does it respect site rules?', 'Yes. It follows robots rules and spaces its requests.']];
+  let open = 0;
+  const draw = () => { $('faqs').innerHTML = faqData.map((f, i) => `<div data-rv class="in" style="border-top:3px solid var(--ink,#1B1A17)">
+    <div role="button" tabindex="0" aria-expanded="${open === i}" data-faq="${i}" class="disp" style="display:flex;justify-content:space-between;align-items:center;gap:20px;padding:26px 0;cursor:pointer;font-size:clamp(22px,2.4vw,30px)"><span>${f[0]}</span><span style="font-size:36px;color:var(--ac,#E8452C);transform:rotate(${open === i ? 45 : 0}deg);transition:transform .4s;display:inline-block;line-height:1">+</span></div>
+    <div class="faqb" style="max-height:${open === i ? 240 : 0}px;opacity:${open === i ? 1 : 0};overflow:hidden"><div style="padding:0 0 26px;font-size:18px;line-height:1.55;max-width:36em">${f[1]}</div></div></div>`).join(''); };
+  draw();
+  const tog = e => { const t = e.target.closest('[data-faq]'); if (!t) return; if (e.type === 'keydown' && e.key !== 'Enter' && e.key !== ' ') return; e.preventDefault(); const i = +t.dataset.faq; open = open === i ? -1 : i; draw(); };
+  $('faqs').addEventListener('click', tog); $('faqs').addEventListener('keydown', tog);
+  // feel switcher
+  const opts = { mood: Object.keys(MOODS), typeface: Object.keys(FONTS), motion: Object.keys(MOTIONS) };
+  document.querySelectorAll('.seg').forEach(seg => {
+    seg.innerHTML = opts[seg.dataset.feel].map(o => `<button type="button">${o}</button>`).join('');
+    seg.addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; feel[seg.dataset.feel] = b.textContent; store.set(seg.dataset.feel, b.textContent); applyFeel(); });
+  });
+  // chips: real questions for the live agent
+  const chips = ['What is the max boost clock of the AMD Ryzen 9 9950X?', 'When was Python 3.13 released?', 'How many days do you have to return an item bought from the Apple Store online?'];
+  const labels = ['Ryzen 9 9950X boost clock', 'Python 3.13 release date', 'Apple Store online return window'];
+  $('chips').innerHTML = chips.map((c, i) => `<button type="button" data-q="${esc(c)}" class="btn" style="border:2px solid var(--bg,#F1EBDD);background:transparent;color:var(--bg,#F1EBDD);font:500 15px 'Familjen Grotesk',sans-serif;padding:9px 16px;border-radius:99px;cursor:pointer">${labels[i]}</button>`).join('');
+  $('chips').addEventListener('click', e => { const b = e.target.closest('[data-q]'); if (b) { $('q').value = b.dataset.q; $('q').focus(); } });
+}
+
+// ---------- scroll + reveal ----------
+function scrollToId(id) {
+  if (id === 'top') return window.scrollTo({ top: 0, behavior: 'smooth' });
+  const el = $(id); if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 30, behavior: 'smooth' });
+}
+document.addEventListener('click', e => { const a = e.target.closest('[data-go]'); if (a) { e.preventDefault(); scrollToId(a.dataset.go); } });
+let io;
+function observeReveals() {
+  if (!('IntersectionObserver' in window)) { document.querySelectorAll('[data-rv]').forEach(e => e.classList.add('in')); return; }
+  io = io || new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }), { threshold: .12 });
+  document.querySelectorAll('[data-rv]:not(.in)').forEach(e => io.observe(e));
+}
+
+// ---------- loader ----------
+function runLoader() {
+  let pct = 0;
+  const t = setInterval(() => {
+    if (pct >= 100) {
+      clearInterval(t);
+      setTimeout(() => {
+        $('loader').style.transform = 'translateY(-105%)'; $('loader').style.pointerEvents = 'none';
+        $('loaderIn').style.borderRadius = '0 0 50% 50% / 0 0 160px 160px';
+        document.querySelectorAll('.lfade').forEach(e => e.style.opacity = 0);
+      }, 350);
+      return;
+    }
+    pct = Math.min(100, pct + 4 + Math.floor(Math.random() * 6));
+    $('lBar').style.width = pct + '%'; $('lPct').textContent = pct + '%';
+    $('lLabel').textContent = pct < 40 ? 'Opening pages' : pct < 75 ? 'Reading' : 'Verifying';
+  }, 90);
+}
+
+// ================= LIVE AGENT =================
+const API = (window.WEBINFO_API || '').replace(/\/$/, '');
+const KIND = { plan: ['Plan', 'var(--c1,#7FD6C2)'], nav: ['Navigate', '#8fa0ff'], read: ['Read', '#A9B89A'], skip: ['Skip', '#8a8473'],
+               extract: ['Extract', '#FF6A4A'], verify: ['Verify', 'var(--c1,#7FD6C2)'], cache: ['Cache', '#F2B544'], error: ['Error', '#FF6A4A'] };
+let ctrl = null, running = false, t0 = 0, clockT = null, queue = [], pumping = false, W = 1280, H = 800, curShot = 'A';
+const pages = {};
+
+function log(kind, text) {
+  const [k, c] = KIND[kind];
+  const d = document.createElement('div');
+  d.style.cssText = 'display:flex;gap:14px;padding:11px 0;border-top:1px solid rgba(128,128,128,.4);animation:stepin .5s both';
+  d.innerHTML = `<span style="color:${c};min-width:78px">${k}</span><span style="word-break:break-word">${esc(text)}</span>`;
+  $('log').appendChild(d);
+}
+const host = u => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return u; } };
+const pathOf = u => { try { const x = new URL(u); return (x.hostname.replace(/^www\./, '') + x.pathname).replace(/\/$/, ''); } catch { return u; } };
+const pctX = x => (x / W * 100) + '%', pctY = y => (y / H * 100) + '%';
+
+function setAddr(url, reason) { $('addr').innerHTML = `<b>${esc(host(url))}</b>${esc(pathOf(url).slice(host(url).length))}${reason ? '  ·  ' + esc(reason) : ''}`; }
+function film(pid, url, state) {
+  let b = document.querySelector(`.film [data-pid="${pid}"]`);
+  if (!b) { b = document.createElement('button'); b.type = 'button'; b.dataset.pid = pid; b.onclick = () => showPage(pid); $('film').appendChild(b); }
+  b.textContent = `${pid} · ${host(url)}`; b.classList.toggle('err', state === 'err');
+  document.querySelectorAll('.film button').forEach(x => x.classList.toggle('on', x === b && state !== 'err'));
+}
+function showShot(src) {
+  const next = curShot === 'A' ? $('shotB') : $('shotA'), prev = curShot === 'A' ? $('shotA') : $('shotB');
+  next.onload = () => { next.classList.add('on'); prev.classList.remove('on'); };
+  next.src = src; curShot = curShot === 'A' ? 'B' : 'A'; $('idle').hidden = true;
+}
+function showPage(pid) { const p = pages[pid]; if (p && p.shot) { showShot(p.shot); setAddr(p.url); $('hl').classList.remove('on'); } }
+function moveCursor(x, y, action, label) {
+  const cur = $('cur'); cur.classList.add('on'); cur.classList.toggle('sel', action === 'select');
+  cur.style.left = pctX(x); cur.style.top = pctY(y);
+  ['tr1', 'tr2', 'tr3'].forEach((id, i) => { const t = $(id); t.style.opacity = (.5 - i * .14); t.style.transitionDuration = `${(.65 + i * .15) * MO}s`; t.style.left = pctX(x); t.style.top = pctY(y); });
+  const lab = $('curLab'); if (label) { lab.textContent = label; lab.classList.add('on'); } else lab.classList.remove('on');
+  if (action === 'select' || action === 'scroll') {
+    const r = document.createElement('div'); r.className = 'ripple'; r.style.left = pctX(x); r.style.top = pctY(y);
+    $('stage').appendChild(r); setTimeout(() => r.remove(), 900);
+  }
+}
+
+function handle(ev, d) {
+  switch (ev) {
+    case 'status':
+      if (d.stage === 'search') log('plan', 'Search the web for pages likely to state the answer.');
+      else if (d.stage === 'read') log('extract', 'Reading the collected text and extracting the specific answer.');
+      else if (d.stage === 'follow') log('plan', d.message);
+      else if (d.stage === 'evidence') log('verify', 'Re-opening the source to point at the exact passage.');
+      else if (d.stage === 'cache') log('cache', d.message);
+      else if (d.stage === 'budget') log('plan', d.message);
+      break;
+    case 'search_results':
+      log('plan', `Found ${d.results.length} candidate${d.results.length === 1 ? '' : 's'}: ${d.results.slice(0, 4).map(r => host(r.url)).join(', ')}`); break;
+    case 'navigate':
+      pages[d.page_id] = pages[d.page_id] || { url: d.url };
+      setAddr(d.url, d.reason === 'evidence' ? 'evidence' : 'loading…'); film(d.page_id, d.url);
+      $('stage').classList.add('busy'); $('hl').classList.remove('on');
+      if (d.reason !== 'evidence') log('nav', pathOf(d.url));
+      break;
+    case 'screenshot':
+      W = d.width; H = d.height; pages[d.page_id] = { ...(pages[d.page_id] || {}), url: d.url, shot: d.image };
+      showShot(d.image); setAddr(d.url); break;
+    case 'cursor': moveCursor(d.x, d.y, d.action, d.label); break;
+    case 'page_read':
+      log('read', `${d.title || host(d.url)} — ${d.blocks} text blocks, ${d.links} links.`); break;
+    case 'page_error':
+      film(d.page_id, d.url, 'err'); log('skip', `${host(d.url)}: ${d.message}`); break;
+    case 'highlight':
+      Object.assign($('hl').style, { left: pctX(d.x - 4), top: pctY(d.y - 4), width: pctX(d.w + 8), height: pctY(d.h + 8) });
+      $('hl').classList.add('on'); $('stage').classList.remove('busy'); break;
+    case 'answer': renderAnswer(d); break;
+    case 'error': log('error', d.message); finish(); break;
+    case 'done': finish(); break;
+  }
+}
+function pump() {
+  if (pumping) return; pumping = true;
+  const step = () => {
+    const it = queue.shift(); if (!it) { pumping = false; return; }
+    handle(it[0], it[1]);
+    const gap = it[0] === 'cursor' ? 380 : it[0] === 'screenshot' ? 140 : it[0] === 'highlight' ? 500 : 60;
+    setTimeout(step, Math.max(10, gap * Math.min(MO, 1.4)));
+  };
+  step();
+}
+function md(s) { return esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/\n+/g, '<br>'); }
+function renderAnswer(d) {
+  const text = (d.answer || '').trim();
+  const m = text.match(/^(.+?[.!?])(\s|$)/s);
+  const head = (m ? m[1] : text).replace(/\*\*/g, ''), body = m ? text.slice(m[0].length) : '';
+  $('ansHead').textContent = head || 'No answer found.';
+  $('ansBody').innerHTML = md(body);
+  const cites = d.citations || [];
+  $('ansSrc').innerHTML = cites.map(c => `<a href="${esc(c.url)}" target="_blank" rel="noopener noreferrer" style="display:block;background:#F6F1E4;border:2px solid #1B1A17;border-radius:12px;padding:12px 14px;margin-bottom:10px;color:#1B1A17">
+    <div class="mono" style="font-size:13px;color:#2B3FD6;word-break:break-all">${esc(pathOf(c.url))}</div><div style="font-size:15px;margin-top:4px;font-style:italic">“${esc(c.quote)}”</div></a>`).join('');
+  const secs = ((d.latency_ms || (performance.now() - t0)) / 1000).toFixed(1);
+  $('ansMeta').textContent = `${d.found ? 'found' : 'not found'} · ${cites.length} source${cites.length === 1 ? '' : 's'} · ${Math.round((d.confidence || 0) * 100)}% · ${d.cached ? 'cached' : secs + 's'}`;
+  if (cites.length) log('verify', `Answer backed by ${cites.length} quoted passage${cites.length === 1 ? '' : 's'}.`);
+  if (d.cached) { $('idle').hidden = false; $('idle').innerHTML = '<div><span>Answered from cache</span>Asked recently, so no browsing was needed.</div>'; }
+  $('answerWrap').hidden = false;
+  setTimeout(() => $('answerWrap').scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 200);
+}
+function finish() {
+  running = false; $('runBtn').textContent = 'Find it'; $('working').hidden = true; $('stage').classList.remove('busy');
+  clearInterval(clockT);
+}
+function resetRun() {
+  $('log').innerHTML = ''; $('film').innerHTML = ''; $('answerWrap').hidden = true; $('hl').classList.remove('on');
+  $('cur').classList.remove('on'); ['tr1', 'tr2', 'tr3'].forEach(id => $(id).style.opacity = 0);
+  ['shotA', 'shotB'].forEach(id => { $(id).classList.remove('on'); $(id).removeAttribute('src'); });
+  $('idle').hidden = false; $('idle').innerHTML = '<div><span>Waiting for a page…</span>The agent\'s own browser shows up here.</div>';
+  $('addr').textContent = 'about:blank'; queue = []; for (const k in pages) delete pages[k];
+}
+async function run(q) {
+  if (running) return;
+  q = q.trim(); if (q.length < 3) { $('q').focus(); return; }
+  if (ctrl) ctrl.abort(); ctrl = new AbortController();
+  running = true; resetRun(); $('runArea').hidden = false; $('working').hidden = false; $('runBtn').textContent = 'Working…';
+  t0 = performance.now(); clearInterval(clockT); clockT = setInterval(() => $('clock').textContent = ((performance.now() - t0) / 1000).toFixed(1) + 's', 100);
+  log('plan', `Question: “${q}”`);
+  try {
+    const res = await fetch(`${API}/api/ask?q=${encodeURIComponent(q)}`, { signal: ctrl.signal, headers: { Accept: 'text/event-stream' } });
+    if (!res.ok) {
+      let msg = `Server returned ${res.status}.`;
+      try { msg = (await res.json()).detail || msg; } catch {}
+      log('error', msg); finish(); return;
+    }
+    const reader = res.body.getReader(), dec = new TextDecoder(); let buf = '';
+    for (;;) {
+      const { value, done } = await reader.read(); if (done) break;
+      buf += dec.decode(value, { stream: true });
+      let i;
+      while ((i = buf.indexOf('\n\n')) >= 0) {
+        const chunk = buf.slice(0, i); buf = buf.slice(i + 2);
+        let ev = 'message', data = '';
+        for (const line of chunk.split('\n')) { if (line.startsWith('event: ')) ev = line.slice(7); else if (line.startsWith('data: ')) data += line.slice(6); }
+        if (!data) continue;
+        try { queue.push([ev, JSON.parse(data)]); pump(); } catch {}
+      }
+    }
+  } catch (e) {
+    if (e.name !== 'AbortError') { log('error', 'Connection to the agent was lost. Try again.'); finish(); }
+  }
+  if (running) { queue.push(['done', {}]); pump(); }
+}
+$('askForm').addEventListener('submit', e => { e.preventDefault(); run($('q').value); });
+
+// ---------- boot ----------
+renderOnce(); applyFeel(); runLoader();
+setTimeout(() => { listsDone = true; observeReveals(); }, 100);
+})();
 </script>
 </body>
 </html>

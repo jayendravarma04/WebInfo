@@ -13,6 +13,9 @@ import socket
 from dataclasses import dataclass, field
 from typing import Awaitable, Callable
 from urllib.parse import urlparse
+from urllib.robotparser import RobotFileParser
+
+import httpx
 
 from playwright.async_api import Browser, BrowserContext, Page, async_playwright
 
@@ -100,6 +103,31 @@ class PageData:
 
 
 _host_ok: dict[str, bool] = {}
+_robots: dict[str, RobotFileParser | None] = {}
+ROBOTS_UA = "WebInfoAgent"
+
+
+async def robots_allowed(url: str) -> bool:
+    """Honour robots.txt for our agent token (falls back to '*'). Unreachable robots.txt = allowed."""
+    p = urlparse(url)
+    origin = f"{p.scheme}://{p.netloc}"
+    if origin not in _robots:
+        rp: RobotFileParser | None = None
+        try:
+            async with httpx.AsyncClient(timeout=4, follow_redirects=True,
+                                         headers={"User-Agent": f"{ROBOTS_UA}/1.0"}) as http:
+                r = await http.get(origin + "/robots.txt")
+            if r.status_code == 200 and len(r.text) < 500_000:
+                rp = RobotFileParser()
+                rp.parse(r.text.splitlines())
+            elif r.status_code in (401, 403):
+                rp = RobotFileParser()
+                rp.parse(["User-agent: *", "Disallow: /"])
+        except Exception:  # noqa: BLE001
+            rp = None
+        _robots[origin] = rp
+    rp = _robots[origin]
+    return True if rp is None else rp.can_fetch(ROBOTS_UA, url)
 
 
 def _is_public_host(host: str) -> bool:
@@ -171,7 +199,8 @@ class Navigator:
     # ---------- helpers ----------
     async def _shot(self, page: Page, page_id: str, emit: Emit) -> None:
         s = get_settings()
-        img = await page.screenshot(type="jpeg", quality=s.screenshot_quality, full_page=False)
+        img = await page.screenshot(type="jpeg", quality=s.screenshot_quality, full_page=False,
+                                    timeout=8000, animations="disabled", caret="hide")
         await emit("screenshot", {
             "page_id": page_id, "url": page.url,
             "image": "data:image/jpeg;base64," + base64.b64encode(img).decode(),
@@ -205,6 +234,10 @@ class Navigator:
         s = get_settings()
         if not is_allowed_url(url):
             return PageData(page_id, url, error="blocked host")
+        if not await robots_allowed(url):
+            await emit("page_error", {"page_id": page_id, "url": url,
+                                      "message": "Site's robots rules ask agents not to read this page"})
+            return PageData(page_id, url, error="robots")
         async with self._sem:
             await emit("navigate", {"page_id": page_id, "url": url})
             page = None

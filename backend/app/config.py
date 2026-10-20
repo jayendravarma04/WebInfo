@@ -22,7 +22,8 @@ class Settings(BaseSettings):
     # --- Agent ---
     max_pages: int = 3                       # pages visited per question
     max_hops: int = 1                        # extra link-follow navigations if the answer is incomplete
-    page_timeout_ms: int = 15000
+    page_timeout_ms: int = 12000
+    browse_budget_s: float = 45.0            # stop opening new pages after this; answer with what we have
     page_text_chars: int = 9000              # per-page text budget sent to Gemini
     answer_cache_hours: int = 12
     search_cache_hours: int = 24

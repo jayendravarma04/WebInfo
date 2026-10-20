@@ -131,6 +131,9 @@ async def run_agent(question: str, emit: Emit) -> dict:
     for r in candidates:
         if len([p for p in pages.values() if not p.error]) >= s.max_pages:
             break
+        if time.monotonic() - t0 > s.browse_budget_s:
+            await emit("status", {"stage": "budget", "message": "Time budget reached; answering from what was read"})
+            break
         pid = f"P{len(pages) + 1}"
         await emit("status", {"stage": "browse", "message": f"Opening {urlparse(r['url']).hostname}"})
         pages[pid] = await navigator.visit(pid, r["url"], emit)
@@ -149,7 +152,8 @@ async def run_agent(question: str, emit: Emit) -> dict:
 
     # 4) optional follow-up navigation
     hops = 0
-    while (not result.get("found") and result.get("follow") and hops < s.max_hops):
+    while (not result.get("found") and result.get("follow") and hops < s.max_hops
+           and time.monotonic() - t0 < s.browse_budget_s + 15):
         url = (result["follow"] or {}).get("url", "")
         if not is_allowed_url(url) or any(p.url == url for p in pages.values()):
             break
