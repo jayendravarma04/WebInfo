@@ -83,12 +83,17 @@ DISMISS_JS = r"""
 FOCUS_JS = r"""
 ([needle, vh]) => {
   const norm = s => (s || '').replace(/\s+/g, ' ').trim().toLowerCase();
-  const n = norm(needle).slice(0, 80);
+  // try the whole quote, then each line/sentence of it (quotes from fetched text can span several elements)
+  const parts = [norm(needle).slice(0, 80), ...String(needle || '').split(/\n+|(?<=[.!?])\s+/).map(norm).filter(x => x.length >= 12).map(x => x.slice(0, 80))];
+  const els = [...document.querySelectorAll('h1,h2,h3,h4,p,li,td,th,dt,dd,pre,blockquote,span,div')];
   let best = null;
-  for (const el of document.querySelectorAll('h1,h2,h3,h4,p,li,td,th,dt,dd,pre,blockquote,span,div')) {
-    const t = norm(el.innerText);
-    if (!t.includes(n)) continue;
-    if (!best || t.length < norm(best.innerText).length) best = el;   // tightest match
+  for (const n of parts) {
+    for (const el of els) {
+      const t = norm(el.innerText);
+      if (!t.includes(n)) continue;
+      if (!best || t.length < norm(best.innerText).length) best = el;   // tightest match
+    }
+    if (best) break;
   }
   if (!best) return null;
   const r0 = best.getBoundingClientRect();

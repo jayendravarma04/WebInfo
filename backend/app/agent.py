@@ -192,6 +192,7 @@ async def _run_agent(question: str, emit: Emit) -> dict:
         pages[p.page_id] = p
     visited: set[str] = set()
     result = early = None
+    citations: list[dict] = []
 
     # 2) FAST PATH: Gemini reads the page text Tavily returned while the browser opens the top page.
     if raw:
@@ -207,7 +208,8 @@ async def _run_agent(question: str, emit: Emit) -> dict:
             raise
         if result.get("found"):
             # Answer the user now; the live view keeps going and highlights the evidence after.
-            early = _final(result, _resolve_citations(result.get("citations", []), pages), pages, t0)
+            citations = _resolve_citations(result.get("citations", []), pages)   # before P1 joins `pages`
+            early = _final(result, citations, pages, t0)
             await db.cache_set(ckey, early, s.answer_cache_hours)
             await emit("answer", early)
         pages["P1"] = await visit
@@ -248,10 +250,13 @@ async def _run_agent(question: str, emit: Emit) -> dict:
         good = [p for k, p in pages.items() if k.startswith("P") and not p.error and p.blocks]
         result = await _ask(question, good + raw + [snip], s)
 
-    citations = _resolve_citations(result.get("citations", []), pages)
+    if early is None:
+        citations = _resolve_citations(result.get("citations", []), pages)
 
     # 5) show the evidence: cursor to the exact passage on the source page
-    c = next((c for c in citations if c["page_id"] != "S"), None)
+    live = {p.url for k, p in pages.items() if k.startswith("P") and not p.error}
+    c = (next((c for c in citations if c["page_id"] != "S"), None)
+         or next((c for c in citations if c["url"] in live), None))   # a snippet from a page we have open
     if c and not c["page_id"].startswith("P"):   # cited from fetched text: show it on the live page
         same = next((k for k, p in pages.items() if k.startswith("P") and p.url == c["url"] and not p.error), None)
         c = {**c, "page_id": same or f"P{len([k for k in pages if k.startswith('P')]) + 1}"}

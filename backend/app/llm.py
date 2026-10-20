@@ -18,6 +18,11 @@ API = "https://generativelanguage.googleapis.com/v1beta"
 MODEL_PREFERENCE = [r"flash-lite(?!.*(preview|exp|tts|live|image))", r"flash(?!.*(preview|exp|tts|live|image|lite))"]
 
 
+def _think_cfg(model: str) -> dict:
+    m = re.search(r"gemini-(\d+(?:\.\d+)?)", model)
+    return {"thinkingLevel": "minimal"} if m and float(m.group(1)) >= 3 else {"thinkingBudget": 0}
+
+
 class QuotaExhausted(RuntimeError):
     pass
 
@@ -31,7 +36,8 @@ class GeminiClient:
         self._locks = {k: asyncio.Lock() for k in self.keys}
         self._cursor = 0
         self._cooldown_until = {k: 0.0 for k in self.keys}
-        self.http = httpx.AsyncClient(timeout=60)
+        self.http = httpx.AsyncClient(timeout=httpx.Timeout(30, connect=10))
+        self._think_off: bool | None = None
 
     async def resolve_model(self) -> str:
         """ListModels does not consume generateContent quota."""
@@ -82,6 +88,8 @@ class GeminiClient:
             "generationConfig": {"temperature": 0.1, "maxOutputTokens": max_tokens,
                                  "responseMimeType": "application/json"},
         }
+        if self._think_off is not False:   # extraction needs no reasoning: thinking only adds latency and tokens
+            body["generationConfig"]["thinkingConfig"] = _think_cfg(model)
         last_err: Exception | None = None
         for attempt in range(len(self.keys) + 1):
             key = await self._acquire_key()
@@ -92,6 +100,10 @@ class GeminiClient:
                 self._last_call[key] = time.monotonic()
                 r = await self.http.post(f"{API}/models/{model}:generateContent", json=body,
                                          headers={"x-goog-api-key": key})
+            if r.status_code == 400 and "thinking" in r.text.lower() and self._think_off is not False:
+                self._think_off = False            # this model can't switch thinking off: send plain requests
+                body["generationConfig"].pop("thinkingConfig", None)
+                continue
             if r.status_code == 429 or r.status_code >= 500:
                 last_err = RuntimeError(f"Gemini {r.status_code}: {r.text[:200]}")
                 if r.status_code == 429:
