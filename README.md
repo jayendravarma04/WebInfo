@@ -23,6 +23,16 @@ For the interactive version (orbit, click any component, deploy-path mode, repo-
 
 **Stack:** FastAPI · Playwright/Chromium · Gemini REST (2-key rotation) · Tavily · Postgres 16 · Docker Compose · GCP e2-micro
 
+## Live deployment
+| | |
+|---|---|
+| URL | http://136.113.27.193 |
+| VM | `webinfo-vm` · e2-micro · us-central1-a · 30 GB pd-standard · Debian 12 |
+| Containers | `webinfo-api-1` (FastAPI + Chromium), `webinfo-db-1` (Postgres 16) |
+| Add / rotate API keys | SSH to the VM → `sudo bash /opt/webinfo/deploy/set-keys.sh` |
+
+The external IP is ephemeral: it changes if the VM is stopped and started again.
+
 ## Free-tier guard rails
 | Limit | Default | Where |
 |---|---|---|
