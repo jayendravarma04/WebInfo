@@ -27,6 +27,9 @@ def pricing():
 @fake.post("/tavily/search")
 async def tavily(req: Request):
     calls["tavily"] += 1
+    if "quick" in (await req.json())["query"]:   # fast path: page text arrives with the search
+        return {"results": [{"title": "Acme Pricing", "url": f"http://127.0.0.1:{FAKE}/site/pricing.html", "content": "pricing", "score": .9,
+                             "raw_content": "# Pricing\n" + "Acme widgets text. " * 30 + "\nThe Pro plan costs $49 per month and includes 10 seats.\n" + "More text. " * 30}]}
     assert req.headers["authorization"] == "Bearer tvly-test"
     return {"results": [{"title": "Acme", "url": f"http://127.0.0.1:{FAKE}/site/index.html", "content": "Acme widgets", "score": .9},
                         {"title": "doc", "url": f"http://127.0.0.1:{FAKE}/site/x.pdf", "content": "", "score": .5}]}
@@ -44,7 +47,7 @@ async def gen(model: str, req: Request):
     body = await req.json()
     assert body["generationConfig"]["responseMimeType"] == "application/json"
     prompt = body["contents"][0]["parts"][0]["text"]
-    m = re.search(r"\[(P\d):B(\d+)\] [^\n]*\$49", prompt)
+    m = re.search(r"\[([PR]\d):B(\d+)\] [^\n]*\$49", prompt)
     if not m:
         out = {"found": False, "answer": "Not on home page", "confidence": .2, "citations": [],
                "follow": {"page": "P1", "url": f"http://127.0.0.1:{FAKE}/site/pricing.html", "why": "pricing page"}}
@@ -88,10 +91,19 @@ async def main():
                 hl = next(d for e, d in events if e == "highlight"); print("highlight box:", {k: hl[k] for k in "xywh"})
             else:
                 assert ans["cached"], "second run should be cached"
+        t = time.time(); evs = []
+        async with c.stream("GET", "http://127.0.0.1:8077/api/ask", params={"q": "quick: price of the Acme Pro plan?"}) as r:
+            ev = None
+            async for line in r.aiter_lines():
+                if line.startswith("event: "): ev = line[7:]
+                elif line.startswith("data: "): evs.append((ev, json.loads(line[6:])))
+        ans = next(d for e, d in evs if e == "answer"); kinds = [e for e, _ in evs]
+        print(f"\nfast path: {time.time()-t:.1f}s found={ans['found']} cite={ans['citations'][0]['page_id']} highlight={'highlight' in kinds}")
+        assert ans["found"] and "highlight" in kinds
         print("\nupstream calls:", calls)
         print("usage:", (await c.get("http://127.0.0.1:8077/api/usage")).json())
         print("history:", [(h["question"], h["status"], h["cached"]) for h in (await c.get("http://127.0.0.1:8077/api/history")).json()])
-    assert calls == {"gemini": 2, "tavily": 1}, calls
+    assert calls == {"gemini": 3, "tavily": 2}, calls
     print("\nE2E OK")
 
 asyncio.run(main())

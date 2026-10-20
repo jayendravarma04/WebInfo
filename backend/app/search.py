@@ -16,7 +16,7 @@ class SearchUnavailable(RuntimeError):
 async def web_search(query: str) -> list[dict]:
     """Returns [{title, url, snippet, score}]. Uses basic depth = 1 credit per uncached call."""
     s = get_settings()
-    ckey = db.make_key("tavily", query.lower().strip(), str(s.tavily_max_results))
+    ckey = db.make_key("tavily-raw", query.lower().strip(), str(s.tavily_max_results))
     if (hit := await db.cache_get(ckey)) is not None:
         return hit
     if not s.tavily_api_key:
@@ -34,7 +34,7 @@ async def web_search(query: str) -> list[dict]:
                 "search_depth": "basic",
                 "max_results": s.tavily_max_results,
                 "include_answer": False,
-                "include_raw_content": False,
+                "include_raw_content": True,   # page text comes with the search: same 1 credit
             },
         )
     if r.status_code in (401, 403, 429, 432, 433):
@@ -42,7 +42,7 @@ async def web_search(query: str) -> list[dict]:
     r.raise_for_status()
     results = [
         {"title": x.get("title", ""), "url": x["url"], "snippet": x.get("content", "")[:400],
-         "score": x.get("score", 0)}
+         "score": x.get("score", 0), "raw": (x.get("raw_content") or "")[:14000]}
         for x in r.json().get("results", []) if x.get("url")
     ]
     await db.cache_set(ckey, results, s.search_cache_hours)

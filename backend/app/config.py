@@ -20,10 +20,10 @@ class Settings(BaseSettings):
     tavily_max_results: int = 5
 
     # --- Agent ---
-    max_pages: int = 3                       # pages visited per question
+    max_pages: int = 2                       # pages visited per question
     max_hops: int = 1                        # extra link-follow navigations if the answer is incomplete
-    page_timeout_ms: int = 12000
-    browse_budget_s: float = 45.0            # stop opening new pages after this; answer with what we have
+    page_timeout_ms: int = 10000
+    browse_budget_s: float = 30.0            # stop opening new pages after this; answer with what we have
     page_text_chars: int = 9000              # per-page text budget sent to Gemini
     answer_cache_hours: int = 12
     search_cache_hours: int = 24

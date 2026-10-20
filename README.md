@@ -42,12 +42,13 @@ Prefer video? [`docs/architecture.mp4`](docs/architecture.mp4). Open [`docs/arch
 <td width="50%"><img src="docs/live-answer.jpg" alt="Answer card: Python 3.13 was released on October 7, 2024, with the quoted source"></td>
 </tr><tr>
 <td><sub>Agent log on the left; the agent's own browser on the right, with the breathing cursor and the evidence box on the source page.</sub></td>
-<td><sub>The answer with its quoted passage and a link to the page it came from. Real run: 18.9 s.</sub></td>
+<td><sub>The answer with its quoted passage and a link to the page it came from. Real run on the free VM; answers now arrive in about 5 s.</sub></td>
 </tr></table>
 
 ```
 question ─► Postgres cache (12 h)  ── hit ──► answer, zero API calls
-         ─► Tavily search (1 credit, cached 24 h)
+         ─► Tavily search + page text (1 credit, cached 24 h), ranked by relevance to the question
+         ─► FAST PATH: Gemini reads that text while Chromium opens the top page ─► answer in ~5 s
          ─► robots.txt check ─► Chromium visits the top 3 sites ──► screenshots + cursor events ─► UI
          ─► Gemini Flash-Lite: answer + verbatim citations (1 call; search snippets as fallback evidence)
          ─► not found? follow the best link (1 more call)
@@ -77,7 +78,7 @@ The external IP is ephemeral: it changes if the VM is stopped and started again.
 | Tavily credits / month | 900 (free = 1,000) | `TAVILY_MONTHLY_CAP` |
 | Questions / IP / hour | 15 | `PER_IP_HOURLY_LIMIT` |
 | Gemini calls per question | 1–2 | `MAX_HOPS` |
-| Browsing time per question | 45 s, then answer from what was read | `BROWSE_BUDGET_S` |
+| Browsing time per question | 30 s, then answer from what was read | `BROWSE_BUDGET_S` |
 | Repeat question | 0 API calls (Postgres cache) | `ANSWER_CACHE_HOURS` |
 
 Model: a blank `GEMINI_MODEL` auto-selects the newest Flash-Lite via ListModels (a free call). A 429 benches a key for 60 s and rotates to the other.

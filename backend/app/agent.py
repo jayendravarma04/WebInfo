@@ -4,6 +4,7 @@ Quota budget per *uncached* question:
   Tavily: 1 credit (basic search, also cached 24h)
   Gemini: 1 call, or 2 if it decides to follow a link to find the answer
 """
+import asyncio
 import logging
 import re
 import time
@@ -61,9 +62,51 @@ def _format_pages(pages: list[PageData], s) -> str:
     return "\n\n".join(parts)
 
 
-def _pick_urls(results: list[dict], n: int) -> list[dict]:
+STOP = set("a an the of to in on for and or is are was were be what which who whom when where why how do does did "
+           "can could should would will it its this that these those with from by at as about vs i me my you your "
+           "much many tell give find get there their than then into over".split())
+
+
+def _terms(text: str) -> set[str]:
+    return {w for w in re.findall(r"[a-z0-9][a-z0-9.+-]*", text.lower()) if len(w) > 1 and w not in STOP}
+
+
+def _relevance(q_terms: set[str], r: dict) -> float:
+    """Share of the question's key terms that appear in the result title/snippet/url, plus Tavily's score."""
+    if not q_terms:
+        return r.get("score", 0)
+    hay = _terms(f"{r.get('title', '')} {r.get('snippet', '')} {r['url'].replace('-', ' ').replace('/', ' ')}")
+    score = len(q_terms & hay) / len(q_terms) + 0.3 * float(r.get("score") or 0)
+    must = {t for t in q_terms if any(ch.isdigit() for ch in t)}   # model numbers, versions, years
+    if must and not (must & hay):
+        score *= 0.4
+    return score
+
+
+def _chunks(text: str, limit: int) -> list[dict]:
+    """Split fetched page text into numbered blocks of <= ~450 chars, capped at `limit` chars."""
+    out, buf, total = [], "", 0
+    for line in re.split(r"\n+", text):
+        line = re.sub(r"\s+", " ", line).strip(" #*|-")
+        if len(line) < 3:
+            continue
+        if len(buf) + len(line) > 450 and buf:
+            out.append(buf); total += len(buf); buf = ""
+            if total > limit:
+                break
+        buf = f"{buf} {line}".strip()
+    if buf and total <= limit:
+        out.append(buf)
+    return [{"id": i, "text": t[:700]} for i, t in enumerate(out)]
+
+
+def _pick_urls(results: list[dict], n: int, question: str = "") -> list[dict]:
+    q = _terms(question)
+    ranked = sorted(results, key=lambda r: _relevance(q, r), reverse=True)
+    # drop results that share almost nothing with the question (the "wrong page in the tab" problem)
+    ranked = [r for r in ranked if not q or _relevance(q, r) >= 0.45] or ranked[:1]
     picked, domains = [], set()
-    for r in results:
+    for r in ranked:
         u = r["url"]
         d = urlparse(u).hostname or ""
         if u.lower().endswith((".pdf", ".zip", ".doc", ".docx", ".ppt", ".xls")) or d in domains:
@@ -105,6 +148,13 @@ def _resolve_citations(raw: list[dict], pages: dict[str, PageData]) -> list[dict
 
 
 async def run_agent(question: str, emit: Emit) -> dict:
+    try:
+        return await _run_agent(question, emit)
+    finally:
+        await navigator.close_all()   # pages were kept open for the evidence step
+
+
+async def _run_agent(question: str, emit: Emit) -> dict:
     s = get_settings()
     t0 = time.monotonic()
     ckey = db.make_key("answer", _norm_q(question))
@@ -121,34 +171,68 @@ async def run_agent(question: str, emit: Emit) -> dict:
         results = await web_search(question)
     except SearchUnavailable as e:
         raise RuntimeError(f"Search unavailable: {e}") from e
-    await emit("search_results", {"query": question, "results": results})
-    candidates = _pick_urls(results, s.max_pages)
+    await emit("search_results", {"query": question, "results": [{k: v for k, v in r.items() if k != "raw"} for r in results]})
+    candidates = _pick_urls(results, s.max_pages, question)
     if not candidates:
         raise RuntimeError("No usable search results")
 
-    # 2) navigate + read
+    # robots.txt for every candidate, fetched in parallel (cached per origin)
+    from .browser import robots_allowed
+    await asyncio.gather(*(robots_allowed(r["url"]) for r in candidates), return_exceptions=True)
+
     pages: dict[str, PageData] = {}
-    for r in candidates:
-        if len([p for p in pages.values() if not p.error]) >= s.max_pages:
-            break
-        if time.monotonic() - t0 > s.browse_budget_s:
-            await emit("status", {"stage": "budget", "message": "Time budget reached; answering from what was read"})
-            break
-        pid = f"P{len(pages) + 1}"
-        await emit("status", {"stage": "browse", "message": f"Opening {urlparse(r['url']).hostname}"})
-        pages[pid] = await navigator.visit(pid, r["url"], emit)
-    good = [p for p in pages.values() if not p.error and p.blocks]
     # Search snippets ride along as page "S": a fallback when sites block the browser.
     snip = PageData("S", "search", "Search result snippets", blocks=[
         {"id": i, "text": f"{r['title']}: {r['snippet']} (source: {r['url']})", "url": r["url"], "title": r["title"]}
         for i, r in enumerate(results[:6]) if r.get("snippet")])
     pages["S"] = snip
-    if not good and not snip.blocks:
-        raise RuntimeError("Could not read any of the result pages")
+    raw = [PageData(f"R{i + 1}", r["url"], r["title"], blocks=_chunks(r["raw"], s.page_text_chars))
+           for i, r in enumerate(candidates[:3]) if len(r.get("raw") or "") > 300]
+    for p in raw:
+        pages[p.page_id] = p
+    visited: set[str] = set()
+    result = early = None
 
-    # 3) extract
-    await emit("status", {"stage": "read", "message": "Reading pages and extracting the answer"})
-    result = await _ask(question, good + [snip], s)
+    # 2) FAST PATH: Gemini reads the page text Tavily returned while the browser opens the top page.
+    if raw:
+        top = candidates[0]
+        await emit("status", {"stage": "browse", "message": f"Opening {urlparse(top['url']).hostname}"})
+        visit = asyncio.create_task(navigator.visit("P1", top["url"], emit))
+        visited.add(top["url"])
+        await emit("status", {"stage": "read", "message": "Reading the pages and extracting the answer"})
+        try:
+            result = await _ask(question, raw + [snip], s)
+        except BaseException:
+            pages["P1"] = await visit
+            raise
+        if result.get("found"):
+            # Answer the user now; the live view keeps going and highlights the evidence after.
+            early = _final(result, _resolve_citations(result.get("citations", []), pages), pages, t0)
+            await db.cache_set(ckey, early, s.answer_cache_hours)
+            await emit("answer", early)
+        pages["P1"] = await visit
+        if not result.get("found"):
+            result = None
+
+    # 3) FULL PATH: browse more pages and ask again with everything read
+    if result is None:
+        for r in candidates:
+            if r["url"] in visited:
+                continue
+            if len([k for k, p in pages.items() if k.startswith("P") and not p.error]) >= s.max_pages:
+                break
+            if time.monotonic() - t0 > s.browse_budget_s:
+                await emit("status", {"stage": "budget", "message": "Time budget reached; answering from what was read"})
+                break
+            pid = f"P{len([k for k in pages if k.startswith('P')]) + 1}"
+            await emit("status", {"stage": "browse", "message": f"Opening {urlparse(r['url']).hostname}"})
+            pages[pid] = await navigator.visit(pid, r["url"], emit)
+            visited.add(r["url"])
+        good = [p for k, p in pages.items() if k.startswith("P") and not p.error and p.blocks]
+        if not good and not raw and not snip.blocks:
+            raise RuntimeError("Could not read any of the result pages")
+        await emit("status", {"stage": "read", "message": "Reading pages and extracting the answer"})
+        result = await _ask(question, good + raw + [snip], s)
 
     # 4) optional follow-up navigation
     hops = 0
@@ -158,33 +242,42 @@ async def run_agent(question: str, emit: Emit) -> dict:
         if not is_allowed_url(url) or any(p.url == url for p in pages.values()):
             break
         hops += 1
-        pid = f"P{len([k for k in pages if k != 'S']) + 1}"
+        pid = f"P{len([k for k in pages if k.startswith('P')]) + 1}"
         await emit("status", {"stage": "follow", "message": f"Following link: {result['follow'].get('why', '')}"[:140]})
         pages[pid] = await navigator.visit(pid, url, emit)
-        good = [p for p in pages.values() if not p.error and p.blocks and p.page_id != "S"]
-        result = await _ask(question, good + [snip], s)
+        good = [p for k, p in pages.items() if k.startswith("P") and not p.error and p.blocks]
+        result = await _ask(question, good + raw + [snip], s)
 
     citations = _resolve_citations(result.get("citations", []), pages)
 
     # 5) show the evidence: cursor to the exact passage on the source page
     c = next((c for c in citations if c["page_id"] != "S"), None)
+    if c and not c["page_id"].startswith("P"):   # cited from fetched text: show it on the live page
+        same = next((k for k, p in pages.items() if k.startswith("P") and p.url == c["url"] and not p.error), None)
+        c = {**c, "page_id": same or f"P{len([k for k in pages if k.startswith('P')]) + 1}"}
     if c:
         await emit("status", {"stage": "evidence", "message": "Pointing to the source"})
         await navigator.focus(c["page_id"], c["url"], c["quote"], emit)
 
-    final = {
-        "answer": result.get("answer", "").strip(),
-        "found": bool(result.get("found")),
-        "confidence": float(result.get("confidence") or 0),
-        "citations": citations,
-        "sources": [{"page_id": p.page_id, "url": p.url, "title": p.title} for p in good],
-        "latency_ms": int((time.monotonic() - t0) * 1000),
-        "cached": False,
-    }
+    if early is not None:
+        return early
+    final = _final(result, citations, pages, t0)
     if final["found"] and final["answer"]:
         await db.cache_set(ckey, final, s.answer_cache_hours)
     await emit("answer", final)
     return final
+
+
+def _final(result: dict, citations: list[dict], pages: dict, t0: float) -> dict:
+    return {
+        "answer": result.get("answer", "").strip(),
+        "found": bool(result.get("found")),
+        "confidence": float(result.get("confidence") or 0),
+        "citations": citations,
+        "sources": [{"page_id": p.page_id, "url": p.url, "title": p.title} for k, p in pages.items() if k != "S" and not p.error and p.blocks],
+        "latency_ms": int((time.monotonic() - t0) * 1000),
+        "cached": False,
+    }
 
 
 __all__ = ["run_agent", "QuotaExhausted"]

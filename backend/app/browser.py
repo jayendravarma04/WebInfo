@@ -73,6 +73,13 @@ EXTRACT_JS = r"""
 }
 """
 
+DISMISS_JS = r"""
+() => { const re = /^(accept( all)?( cookies)?|allow all|i agree|agree|got it|ok|okay)$/i;
+  for (const b of document.querySelectorAll('button,[role=button]')) {
+    const t = (b.innerText || '').trim(); if (re.test(t) && b.offsetParent) { b.click(); return true; } }
+  return false; }
+"""
+
 FOCUS_JS = r"""
 ([needle, vh]) => {
   const norm = s => (s || '').replace(/\s+/g, ' ').trim().toLowerCase();
@@ -159,7 +166,8 @@ class Navigator:
         self._pw = None
         self._browser: Browser | None = None
         self._ctx: BrowserContext | None = None
-        self._sem = asyncio.Semaphore(1)   # e2-micro: exactly one tab at a time
+        self._sem = asyncio.Semaphore(1)
+        self._pages: dict[str, Page] = {}   # e2-micro: exactly one tab at a time
 
     async def start(self) -> None:
         s = get_settings()
@@ -209,14 +217,10 @@ class Navigator:
         })
 
     async def _dismiss_banners(self, page: Page) -> None:
-        for label in ("Accept all", "Accept", "I agree", "Agree", "Got it", "OK"):
-            try:
-                btn = page.get_by_role("button", name=label, exact=False).first
-                if await btn.is_visible(timeout=250):
-                    await btn.click(timeout=800)
-                    return
-            except Exception:  # noqa: BLE001
-                continue
+        try:  # one in-page pass instead of six locator waits
+            await page.evaluate(DISMISS_JS)
+        except Exception:  # noqa: BLE001
+            pass
 
     async def _open(self, url: str) -> Page:
         s = get_settings()
@@ -224,7 +228,7 @@ class Navigator:
         page.set_default_timeout(s.page_timeout_ms)
         await page.goto(url, wait_until="domcontentloaded", timeout=s.page_timeout_ms)
         try:
-            await page.wait_for_load_state("networkidle", timeout=2500)
+            await page.wait_for_load_state("networkidle", timeout=900)
         except Exception:  # noqa: BLE001
             pass
         return page
@@ -240,7 +244,7 @@ class Navigator:
             return PageData(page_id, url, error="robots")
         async with self._sem:
             await emit("navigate", {"page_id": page_id, "url": url})
-            page = None
+            page, keep = None, False
             try:
                 page = await self._open(url)
                 await self._dismiss_banners(page)
@@ -260,12 +264,12 @@ class Navigator:
                             "y": b["y"] - sy + min(b["h"] // 2, 18),
                             "label": b["text"][:60],
                         })
-                        await asyncio.sleep(0.12)
+                        await asyncio.sleep(0.04)
                     if screen == 0 and data["pageH"] > s.viewport_h * 1.3:
                         await emit("cursor", {"page_id": page_id, "action": "scroll",
                                               "x": s.viewport_w // 2, "y": s.viewport_h - 60})
                         await page.mouse.wheel(0, int(s.viewport_h * 0.8))
-                        await asyncio.sleep(0.35)
+                        await asyncio.sleep(0.2)
                         await self._shot(page, page_id, emit)
                     else:
                         break
@@ -279,25 +283,36 @@ class Navigator:
                 pd = PageData(page_id, page.url, data["title"], data["blocks"], data["links"])
                 await emit("page_read", {"page_id": page_id, "url": pd.url, "title": pd.title,
                                          "blocks": len(pd.blocks), "links": len(pd.links)})
+                self._pages[page_id] = page; keep = True   # stays open for the evidence step (no reload)
                 return pd
             except Exception as e:  # noqa: BLE001
                 log.info("visit failed %s: %s", url, e)
                 await emit("page_error", {"page_id": page_id, "url": url, "message": str(e)[:160]})
                 return PageData(page_id, url, error=str(e)[:200])
             finally:
-                if page:
+                if page and not keep:
                     await page.close()
+
+    async def close_all(self) -> None:
+        pages, self._pages = list(self._pages.values()), {}
+        for p in pages:
+            try:
+                await p.close()
+            except Exception:  # noqa: BLE001
+                pass
 
     async def focus(self, page_id: str, url: str, quote: str, emit: Emit) -> bool:
         """Re-open the cited page, scroll to the evidence, move cursor there and highlight it."""
         if not is_allowed_url(url):
             return False
         async with self._sem:
-            page = None
+            page = self._pages.get(page_id)
+            reused = page is not None and not page.is_closed()
             try:
                 await emit("navigate", {"page_id": page_id, "url": url, "reason": "evidence"})
-                page = await self._open(url)
-                await self._dismiss_banners(page)
+                if not reused:
+                    page = await self._open(url)
+                    await self._dismiss_banners(page)
                 box = await page.evaluate(FOCUS_JS, [quote, get_settings().viewport_h])
                 await asyncio.sleep(0.25)
                 await self._shot(page, page_id, emit)
@@ -313,7 +328,7 @@ class Navigator:
                 log.info("focus failed %s: %s", url, e)
                 return False
             finally:
-                if page:
+                if page and not reused:
                     await page.close()
 
 

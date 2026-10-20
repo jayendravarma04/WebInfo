@@ -30,7 +30,7 @@ header{display:flex;justify-content:space-between;align-items:end;gap:14px;flex-
 .tag{position:absolute;transform:translate(-50%,-100%);white-space:nowrap;font:500 11px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--ink);padding:4px 9px 4px 20px;border-radius:99px;background:rgba(10,10,12,.62);border:1px solid rgba(241,235,221,.16);backdrop-filter:blur(4px);transition:opacity .5s,border-color .4s,color .4s}
 .tag:before{content:"";position:absolute;left:8px;top:50%;width:6px;height:6px;margin-top:-3px;border-radius:50%;background:var(--c,var(--ink));box-shadow:0 0 8px var(--c,var(--ink))}
 .tag.hot{border-color:var(--c);color:#fff}
-.tag.dim{opacity:.28}.tag.ghost{opacity:.1}
+.tag.dim{opacity:0}.tag.ghost{opacity:0}
 .chap{position:absolute;left:5.5%;bottom:calc(var(--bar,9%) + 6%);z-index:7;max-width:min(560px,70%);pointer-events:none}
 .chap .eb{font:500 clamp(10px,1vw,13px) var(--mono);letter-spacing:.2em;text-transform:uppercase;color:var(--ac);display:flex;gap:10px;align-items:center}
 .chap .eb:before{content:"";width:34px;height:2px;background:var(--ac)}
@@ -76,7 +76,7 @@ header{display:flex;justify-content:space-between;align-items:end;gap:14px;flex-
 .file span{font-size:13.5px;color:#cfc8b6}
 .file em{font:500 10.5px var(--mono);font-style:normal;letter-spacing:.1em;text-transform:uppercase}
 @media (prefers-reduced-motion:reduce){.chap>*,.title,.tag{transition:none}}
-.cap *,.cap *:before,.cap *:after{transition:none!important}
+.cap *,.cap *:before,.cap *:after,.chap>*,.title{transition:none!important}
 </style>
 
 <div class="wrap">
@@ -92,6 +92,7 @@ header{display:flex;justify-content:space-between;align-items:end;gap:14px;flex-
     <div class="labels" id="labels"></div>
     <div class="cur" id="cur"><div class="ticks"><i></i><i></i><i></i><i></i></div><div class="ring"></div><div class="dot"></div></div>
     <div class="grain" id="grain"></div>
+    <div id="fade" style="position:absolute;inset:0;background:#000;z-index:6;pointer-events:none;opacity:0"></div>
     <div class="title" id="title">
       <div>
         <div class="big"><span class="gold">JR</span><span>WebInfo</span></div>
@@ -130,12 +131,12 @@ if (CAPTURE) document.documentElement.classList.add('cap');
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const COL = { bg: 0x07070a, ink: 0xF1EBDD, ac: 0xFF6A4A, bl: 0x9BA9FF, c1: 0x7FD6C2, c3: 0xA9B89A, c4: 0x8fa0ff, gold: 0xF2B544, vio: 0xC58CFF };
 const hex = c => '#' + c.toString(16).padStart(6, '0');
-try { await Promise.race([document.fonts.ready, new Promise(r => setTimeout(r, 2500))]); } catch {}
+try { await Promise.race([Promise.all(['30px "Young Serif"', 'italic 30px "Young Serif"', '22px "Familjen Grotesk"', 'bold 22px "Familjen Grotesk"', '12px "JetBrains Mono"'].map(f => document.fonts.load(f))).then(() => document.fonts.ready), new Promise(r => setTimeout(r, 3000))]); } catch {}
 
 // ---------------- renderer ----------------
 const screen = document.getElementById('screen'), canvas = document.getElementById('c');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: CAPTURE });
-renderer.setPixelRatio(CAPTURE ? 1 : Math.min(devicePixelRatio, 1.75));
+renderer.setPixelRatio(CAPTURE ? 2 : Math.max(1.5, Math.min(devicePixelRatio, 2)));
 renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
 renderer.outputEncoding = THREE.sRGBEncoding;
 const scene = new THREE.Scene();
@@ -148,7 +149,7 @@ const rim = new THREE.PointLight(COL.bl, 1.6, 40, 2); rim.position.set(-8, 6, -6
 
 const composer = new THREE.EffectComposer(renderer);
 composer.addPass(new THREE.RenderPass(scene, camera));
-const bloom = new THREE.UnrealBloomPass(new THREE.Vector2(960, 540), 1.35, .6, .42);
+const bloom = new THREE.UnrealBloomPass(new THREE.Vector2(960, 540), 1.3, .6, .55);
 composer.addPass(bloom);
 const vig = new THREE.ShaderPass(THREE.VignetteShader); vig.uniforms.offset.value = 1.05; vig.uniforms.darkness.value = 1.25;
 composer.addPass(vig);
@@ -165,14 +166,14 @@ function canvasTex(w, h, draw) { const c = document.createElement('canvas'); c.w
 
 // ---------------- world ----------------
 // starfield
-{ const n = 1600, pos = new Float32Array(n * 3), col = new Float32Array(n * 3); const cA = new THREE.Color(COL.ink), cB = new THREE.Color(COL.bl);
+{ const n = 900, pos = new Float32Array(n * 3), col = new Float32Array(n * 3); const cA = new THREE.Color(COL.ink), cB = new THREE.Color(COL.bl);
   for (let i = 0; i < n; i++) { const r = 40 + Math.random() * 60, th = Math.random() * Math.PI * 2, ph = Math.acos(2 * Math.random() - 1) * .55;
     pos.set([r * Math.sin(ph) * Math.cos(th), 6 + r * Math.cos(ph) * .6, r * Math.sin(ph) * Math.sin(th)], i * 3);
     const c = cA.clone().lerp(cB, Math.random()); col.set([c.r, c.g, c.b], i * 3); }
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.BufferAttribute(col, 3));
   scene.add(new THREE.Points(g, new THREE.PointsMaterial({ size: .18, map: glowTex, vertexColors: true, transparent: true, opacity: .8, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }))); }
 // dust motes drifting near the floor
-const dust = (() => { const n = 420, pos = new Float32Array(n * 3), seed = new Float32Array(n);
+const dust = (() => { const n = 260, pos = new Float32Array(n * 3), seed = new Float32Array(n);
   for (let i = 0; i < n; i++) { pos.set([(Math.random() - .5) * 34, Math.random() * 6, (Math.random() - .5) * 26], i * 3); seed[i] = Math.random() * 100; }
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
   const p = new THREE.Points(g, new THREE.PointsMaterial({ size: .07, map: glowTex, color: COL.gold, transparent: true, opacity: .55, depthWrite: false, blending: THREE.AdditiveBlending }));
@@ -200,7 +201,7 @@ const vm = new THREE.Group(); scene.add(vm);
   tagNode('vm', 'GCP e2-micro', 'Docker · 1 GB + swap', COL.bl, [-3.6, .25, 4.2], slab); }
 // containers (glass boxes)
 function container(x0, x1, z0, z1, h, label, lx, lz) {
-  const geo = new THREE.BoxGeometry(x1 - x0, h, z1 - z0); const m = new THREE.Mesh(geo, glass(COL.bl, .07)); m.position.set((x0 + x1) / 2, .16 + h / 2, (z0 + z1) / 2);
+  const geo = new THREE.BoxGeometry(x1 - x0, h, z1 - z0); const m = new THREE.Mesh(geo, glass(COL.bl, .07)); m.renderOrder = 10; m.position.set((x0 + x1) / 2, .16 + h / 2, (z0 + z1) / 2);
   const e = edgeGlow(geo, COL.bl, .45); m.add(e); scene.add(m); return m; }
 container(-3.1, 1.9, -2.5, 2.4, 2.2); container(2.1, 3.7, -2.3, -.1, 1.8);
 
@@ -223,7 +224,7 @@ const chromeTex = canvasTex(512, 320, (g, w, h) => { g.fillStyle = '#101018'; g.
   g.fillStyle = '#0b0b10'; g.fillRect(84, 8, 400, 18); g.fillStyle = '#7FD6C2'; g.font = '12px JetBrains Mono, monospace'; g.fillText('headless chromium · 1 tab', 94, 21);
   for (let i = 0; i < 9; i++) { g.fillStyle = i === 0 ? 'rgba(241,235,221,.9)' : 'rgba(241,235,221,.35)'; g.fillRect(28, 58 + i * 28, i === 0 ? 260 : 300 + (i * 37 % 140), i === 0 ? 16 : 8); } });
 const chromium = new THREE.Group(); chromium.position.set(-1.9, 1.35, -1.35); chromium.rotation.y = .5; scene.add(chromium);
-{ const scr = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 1), new THREE.MeshBasicMaterial({ map: chromeTex, color: 0xb8b4aa, side: THREE.DoubleSide, transparent: true, opacity: .95 }));
+{ const scr = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 1), new THREE.MeshBasicMaterial({ map: chromeTex, color: 0xb8b4aa, side: THREE.FrontSide }));
   chromium.add(scr, edgeGlow(new THREE.PlaneGeometry(1.6, 1), COL.c1, .9), halo(COL.c1, 2.4, .18)); }
 tagNode('chromium', 'Chromium', 'Playwright · SSRF guard', COL.c1, [-1.9, 1.35, -1.35], chromium);
 // Postgres: stacked glowing discs
@@ -234,7 +235,7 @@ pg.add(at(halo(COL.c4, 2, .25), new THREE.Vector3(0, .35, 0)));
 tagNode('pg', 'Postgres 16', 'cache · quota · runs', COL.c4, [2.9, 1.05, -1.2], pg);
 // Tavily + Gemini: floating crystals outside the VM
 function crystal(geo, color, pos) { const g = new THREE.Group(); g.position.set(...pos);
-  const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: new THREE.Color(color).multiplyScalar(.35), emissive: color, emissiveIntensity: .28, roughness: .25, metalness: .5, flatShading: true, transparent: true, opacity: .8 }));
+  const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: new THREE.Color(color).multiplyScalar(.35), emissive: color, emissiveIntensity: .18, roughness: .55, metalness: .2, flatShading: true }));
   g.add(m, edgeGlow(geo, color, .95), halo(color, 3.2, .3));
   const ring = new THREE.Mesh(new THREE.TorusGeometry(1.1, .015, 8, 90), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: .7 })); ring.rotation.x = Math.PI / 2.3; g.add(ring);
   scene.add(g); g.userData.m = m; return g; }
@@ -251,7 +252,7 @@ pagePalette.forEach(([c, nm], i) => {
     g.font = '30px Young Serif, Georgia, serif'; g.fillText(['Ryzen 9 9950X', 'Python 3.13', 'Release notes', 'Returns policy', 'Overview', 'Thread #412', 'How it works'][i], 18, 102);
     for (let k = 0; k < 13; k++) { g.fillStyle = (i === 3 && k === 6) ? '#1B1A17' : 'rgba(27,26,23,.28)'; g.fillRect(18, 130 + k * 26, 364 - (k * 53 % 120), (i === 3 && k === 6) ? 12 : 9); } });
   const a = Math.PI * (.62 + i * .125), r = 3.2;
-  const m = new THREE.Mesh(new THREE.PlaneGeometry(1.25, 1.56), new THREE.MeshBasicMaterial({ map: tex, color: 0x6a665e, side: THREE.DoubleSide, transparent: true, opacity: .95 }));
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(1.25, 1.56), new THREE.MeshBasicMaterial({ map: tex, color: 0x57544c, side: THREE.FrontSide }));
   m.position.set(webCenter.x + Math.cos(a) * r * .55, webCenter.y + Math.sin(i * 1.3) * .35, webCenter.z + Math.sin(a) * r * -1.1);
   m.lookAt(0, 1.6, webCenter.z * .3); m.add(edgeGlow(new THREE.PlaneGeometry(1.25, 1.56), new THREE.Color(c).getHex(), .9));
   scene.add(m); pagesW.push(m);
@@ -259,7 +260,7 @@ pagePalette.forEach(([c, nm], i) => {
 const target = pagesW[3];  // the page that holds the answer
 const hlBar = new THREE.Mesh(new THREE.PlaneGeometry(1.14, .1), new THREE.MeshBasicMaterial({ color: 0xFFB547, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide }));
 hlBar.position.set(-.03, .78 - (130 + 6 * 26 + 6) / 500 * 1.56, .012); target.add(hlBar);
-const hlGlow = halo(0xFFB547, 1, 0); hlGlow.scale.set(1.9, .5, 1); hlGlow.position.copy(hlBar.position); target.add(hlGlow);
+const hlGlow = halo(0xFFB547, 1, 0); hlGlow.scale.set(1.3, .28, 1); hlGlow.position.copy(hlBar.position); target.add(hlGlow);
 tagNode('web', 'The open web', 'real pages · robots.txt', COL.c1, [webCenter.x + .6, 3.8, webCenter.z], null);
 // The user's screen
 const uiTex = canvasTex(800, 460, (g, w, h) => { g.fillStyle = '#16150F'; g.fillRect(0, 0, w, h);
@@ -273,7 +274,7 @@ const uiTex = canvasTex(800, 460, (g, w, h) => { g.fillStyle = '#16150F'; g.fill
   g.fillStyle = '#1B1A17'; g.font = '26px Familjen Grotesk, sans-serif'; g.fillText('Max boost clock of the Ryzen 9 9950X?', 62, 355);
   g.fillStyle = '#FF6A4A'; g.beginPath(); g.roundRect ? g.roundRect(620, 316, 126, 58, 12) : g.rect(620, 316, 126, 58); g.fill(); g.fillStyle = '#fff'; g.font = 'bold 22px Familjen Grotesk, sans-serif'; g.fillText('Find it', 646, 353); });
 const user = new THREE.Group(); user.position.set(0, 1.9, 8.8); scene.add(user);
-{ const scr = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 1.84), new THREE.MeshBasicMaterial({ map: uiTex, color: 0xcfcac0, side: THREE.DoubleSide }));
+{ const scr = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 1.84), new THREE.MeshBasicMaterial({ map: uiTex, color: 0xcfcac0, side: THREE.FrontSide }));
   scr.rotation.y = Math.PI; user.add(scr, edgeGlow(new THREE.PlaneGeometry(3.2, 1.84), COL.ink, .6));
   const stand = new THREE.Mesh(new THREE.CylinderGeometry(.04, .04, 1.9, 8), new THREE.MeshBasicMaterial({ color: 0x3a382e })); stand.position.y = -1.85; user.add(stand); user.add(at(halo(COL.ac, 5, .12), new THREE.Vector3(0, 0, .3))); }
 user.lookAt(0, 1.5, 0);
@@ -309,7 +310,7 @@ const CH = [
   { t: 7.0,  dur: 3.0, eb: '03 / Navigate', h: 'Chromium <i>opens real pages.</i>',      p: 'One tab at a time, robots rules respected. Every screen streams back with the cursor.',   cam: [[-2.5, 3.6, 7.5], [-6.5, 2, 0]], cam2: [[-4.2, 3, 5.6], [-8, 2.1, .2]], links: [['agent', 'chromium', 'c1'], ['chromium', 'web', 'c1']], hot: ['chromium', 'web', 'agent'], cursor: 'scan' },
   { t: 10.0, dur: 2.2, eb: '04 / Extract',  h: 'Gemini lifts out <i>the exact fact.</i>', p: 'One Flash-Lite call reads numbered blocks and returns JSON with verbatim quotes.',        cam: [[4.2, 4.2, -5.8], [6.8, 2.5, -2.4]], cam2: [[5.6, 3.4, -5.2], [7.2, 2.6, -2.6]], links: [['agent', 'gemini', 'c1'], ['gemini', 'agent', 'c1']], hot: ['agent', 'gemini'] },
   { t: 12.2, dur: 2.3, eb: '05 / Verify',   h: 'Back to the source. <i>Point at it.</i>', p: 'The agent re-opens the page, scrolls to the quote and highlights the passage.',             cam: [[-6.2, 2.6, 3.9], [-10.0, 1.9, .3]], cam2: [[-7.0, 2.3, 3.0], [-10.3, 1.84, .15]], links: [['chromium', 'web', 'gold']], hot: ['web', 'chromium'], cursor: 'select' },
-  { t: 14.5, dur: 2.4, eb: '06 / Answer',   h: 'A cited answer, <i>cached for next time.</i>', p: 'Streamed to your screen with its quotes; stored in Postgres so repeats cost nothing.', cam: [[1.5, 5.5, 15], [0, 1.6, 2]], cam2: [[-1, 7, 16.5], [0, 1.2, 0]], links: [['api', 'user', 'gold'], ['agent', 'pg', 'bl'], ['api', 'agent', 'gold']], hot: ['user', 'pg', 'api'] },
+  { t: 14.5, dur: 2.4, eb: '06 / Answer',   h: 'A cited answer, <i>cached for next time.</i>', p: 'Streamed to your screen with its quotes; stored in Postgres so repeats cost nothing.', cam: [[2.5, 7, 18.5], [0, 1.3, 1]], cam2: [[1.5, 7.4, 18.5], [0, 1.3, 1]], links: [['api', 'user', 'gold'], ['agent', 'pg', 'bl'], ['api', 'agent', 'gold']], hot: ['user', 'pg', 'api'] },
   { t: 16.9, dur: 2.6, end: true,                                                          cam: [[0, 15, 21], [0, .5, -1.5]], cam2: [[-3, 17, 23], [0, .5, -2]], links: [['github', 'shell', 'deploy'], ['shell', 'vm', 'deploy']], hot: ['github', 'shell', 'vm'] },
 ];
 const TOTAL = 19.5;
@@ -319,11 +320,8 @@ const v3 = a => new THREE.Vector3(...a);
 function camAt(t) {
   let i = CH.findIndex((c, k) => t >= c.t && (k === CH.length - 1 || t < CH[k + 1].t)); if (i < 0) i = 0;
   const c = CH[i], u = Math.min(1, (t - c.t) / c.dur);
-  const p = v3(c.cam[0]).lerp(v3(c.cam2[0]), ease(u)), l = v3(c.cam[1]).lerp(v3(c.cam2[1]), ease(u));
-  // cross-dissolve the first 0.9s of each shot from the previous shot's end pose (a crane move, not a cut)
-  const blend = Math.min(1, (t - c.t) / .9);
-  if (i > 0 && blend < 1) { const pc = CH[i - 1]; const k = ease(blend);
-    p.copy(v3(pc.cam2[0]).lerp(p, k)); l.copy(v3(pc.cam2[1]).lerp(l, k)); p.y += Math.sin(blend * Math.PI) * .8; }
+  // locked-off camera per shot (no dolly, no crane): the cut is hidden by a short fade through black
+  const p = v3(c.cam[0]).lerp(v3(c.cam2[0]), .5), l = v3(c.cam[1]).lerp(v3(c.cam2[1]), .5);
   return { p, l, i, u };
 }
 
@@ -343,7 +341,7 @@ function overlays(t, ci) {
     screen.style.setProperty('--bar', (c.title || c.end) ? '12%' : '8.5%');
     Object.entries(tags).forEach(([id, el]) => { el.classList.toggle('hot', !!(c.hot && c.hot.includes(id))); el.classList.toggle('dim', !!(c.hot && !c.hot.includes(id))); el.classList.toggle('ghost', !!c.title || (!!c.end && !c.hot.includes(id))); });
   }
-  if (CAPTURE) {  // frame-exact fades for offline rendering (CSS transitions can't keep up)
+  {  // frame-exact fades, identical live and offline
     const c = CH[ci], local = t - c.t, a = Math.max(0, Math.min(1, local / .5, (c.dur - local) / .45));
     if (c.eb) { document.getElementById('eb').textContent = c.eb; document.getElementById('ch').innerHTML = c.h; document.getElementById('cp').textContent = c.p; }
     chap.classList.remove('out'); chap.style.opacity = c.eb ? a : 0; chap.style.transform = `translateY(${(1 - a) * 14}px)`;
@@ -351,6 +349,8 @@ function overlays(t, ci) {
     title.classList.remove('out'); title.style.opacity = Math.max(0, ta);
     const barK = c.title ? Math.max(0, Math.min(1, (c.dur - local) / .9)) : c.end ? Math.min(1, local / .9) : 0;
     screen.style.setProperty('--bar', (8.5 + 3.5 * barK).toFixed(2) + '%');
+    const fin = ci > 0 ? Math.max(0, 1 - local / .28) : 0, fout = Math.max(0, 1 - (c.dur - local) / .2);
+    document.getElementById('fade').style.opacity = Math.max(fin, ci === CH.length - 1 ? 0 : fout).toFixed(3);
   }
 }
 const vtmp = new THREE.Vector3();

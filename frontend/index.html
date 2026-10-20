@@ -59,7 +59,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,[role=button]:focus-vis
 .stage.busy .scanline{animation:scan calc(2.4s*var(--mo,1)) linear infinite}
 @keyframes scan{to{top:100%}}
 /* gaming cursor */
-.cur{position:absolute;left:50%;top:50%;width:0;height:0;pointer-events:none;z-index:4;transition:left calc(.55s*var(--mo,1)) cubic-bezier(.22,1,.36,1),top calc(.55s*var(--mo,1)) cubic-bezier(.22,1,.36,1);opacity:0}
+.cur{position:absolute;left:50%;top:50%;width:0;height:0;pointer-events:none;z-index:4;transition:left .32s cubic-bezier(.22,1,.36,1),top .32s cubic-bezier(.22,1,.36,1);opacity:0}
 .cur.on{opacity:1}
 .cur .ring{position:absolute;left:-17px;top:-17px;width:34px;height:34px;border-radius:50%;border:2px solid var(--ac);box-shadow:0 0 14px var(--ac),inset 0 0 10px color-mix(in srgb,var(--ac) 45%,transparent);animation:breathe 1.8s ease-in-out infinite}
 .cur .ticks{position:absolute;left:-24px;top:-24px;width:48px;height:48px;animation:spin 6s linear infinite}
@@ -444,8 +444,11 @@ function pump() {
   const step = () => {
     const it = queue.shift(); if (!it) { pumping = false; return; }
     handle(it[0], it[1]);
-    const gap = it[0] === 'cursor' ? 380 : it[0] === 'screenshot' ? 140 : it[0] === 'highlight' ? 500 : 60;
-    setTimeout(step, Math.max(10, gap * Math.min(MO, 1.4)));
+    // Stay in sync with the agent: the more events are waiting, the faster we replay them.
+    const base = it[0] === 'cursor' ? 240 : it[0] === 'screenshot' ? 90 : it[0] === 'highlight' ? 380 : 30;
+    const backlog = queue.length, final = queue.some(q => q[0] === 'answer' || q[0] === 'done');
+    const k = final ? .15 : backlog > 12 ? .25 : backlog > 5 ? .5 : 1;
+    setTimeout(step, Math.max(8, base * k * Math.min(MO, 1)));
   };
   step();
 }
