@@ -12,7 +12,14 @@ question ─► Tavily search (1 credit, cached 24h)
          ─► revisit source, scroll to quote, highlight ─► answer (cached 12h)
 ```
 
-**3D architecture:** [`docs/architecture.html`](docs/architecture.html) — open in a browser to orbit the system, play the question flow or deploy path, and map every repo file to its component.
+## 3D Architecture
+
+[![WebInfo 3D architecture — question flow](docs/architecture-flow.gif)](docs/architecture.html)
+
+The animation steps through one question: cache → Tavily → Chromium on the open web → cursor stream → Gemini → follow link → evidence highlight → answer.
+For the interactive version (orbit, click any component, deploy-path mode, repo-file map), download [`docs/architecture.html`](docs/architecture.html) and open it in a browser.
+
+![WebInfo 3D architecture — still](docs/architecture.png)
 
 **Stack:** FastAPI · Playwright/Chromium · Gemini REST (2-key rotation) · Tavily · Postgres 16 · Docker Compose · GCP e2-micro
 
