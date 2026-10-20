@@ -22,6 +22,10 @@ log = logging.getLogger("webinfo.browser")
 Emit = Callable[[str, dict], Awaitable[None]]
 
 BLOCKED_TYPES = {"media", "font", "websocket", "eventsource", "manifest"}
+# Bot walls / error pages: treat as a failed visit so the agent moves to the next result.
+BLOCK_MARKERS = ("access denied", "403 forbidden", "are you a robot", "confirm that you", "verify you are human",
+                 "captcha", "just a moment", "attention required", "enable javascript and cookies",
+                 "unusual traffic", "request blocked", "page not found", "404 not found")
 AD_HOSTS = ("doubleclick", "googlesyndication", "adservice", "taboola", "outbrain", "criteo",
             "scorecardresearch", "hotjar", "facebook.net", "amazon-adsystem")
 
@@ -134,7 +138,7 @@ class Navigator:
         self._pw = await async_playwright().start()
         self._browser = await self._pw.chromium.launch(
             headless=True,
-            args=["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu",
+            args=["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu", "--disable-http2",
                   "--disable-extensions", "--mute-audio", "--no-zygote",
                   "--renderer-process-limit=2", "--js-flags=--max-old-space-size=256"],
         )
@@ -233,6 +237,12 @@ class Navigator:
                     else:
                         break
 
+                probe = " ".join([data["title"]] + [b["text"] for b in data["blocks"][:3]]).lower()
+                if ("/blocked" in page.url or len(data["blocks"]) < 3
+                        or any(m in probe for m in BLOCK_MARKERS)):
+                    await emit("page_error", {"page_id": page_id, "url": page.url,
+                                              "message": "Site blocked automated reading or had no content"})
+                    return PageData(page_id, page.url, data["title"], error="blocked")
                 pd = PageData(page_id, page.url, data["title"], data["blocks"], data["links"])
                 await emit("page_read", {"page_id": page_id, "url": pd.url, "title": pd.title,
                                          "blocks": len(pd.blocks), "links": len(pd.links)})

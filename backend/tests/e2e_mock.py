@@ -14,15 +14,15 @@ os.environ.update(GEMINI_API_KEYS="bad-key,good-key", TAVILY_API_KEY="tvly-test"
 
 fake = FastAPI()
 calls = {"gemini": 0, "tavily": 0}
-LOREM = "<p>" + "WebInfo test paragraph with filler content to exercise scrolling and extraction. " * 6 + "</p>"
+def lorem(n): return "".join(f"<p>Paragraph {i}: " + "WebInfo test filler content to exercise scrolling and extraction. " * 6 + "</p>" for i in range(n))
 
 @fake.get("/site/index.html", response_class=HTMLResponse)
 def index():
-    return f"<html><title>Acme Home</title><body><h1>Acme Widgets</h1>{LOREM*8}<a href='/site/pricing.html'>See pricing plans</a></body></html>"
+    return f"<html><title>Acme Home</title><body><h1>Acme Widgets</h1>{lorem(8)}<a href='/site/pricing.html'>See pricing plans</a></body></html>"
 
 @fake.get("/site/pricing.html", response_class=HTMLResponse)
 def pricing():
-    return f"<html><title>Acme Pricing</title><body><h1>Pricing</h1>{LOREM*6}<p>The Pro plan costs $49 per month and includes 10 seats.</p>{LOREM*3}</body></html>"
+    return f"<html><title>Acme Pricing</title><body><h1>Pricing</h1>{lorem(6)}<p>The Pro plan costs $49 per month and includes 10 seats.</p>{lorem(3)}</body></html>"
 
 @fake.post("/tavily/search")
 async def tavily(req: Request):
