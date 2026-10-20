@@ -47,8 +47,9 @@ The browser refuses private/metadata IPs (SSRF guard), and page text is treated 
 2. Wait ~3 min, then SSH and install:
    ```bash
    gcloud compute ssh webinfo-vm --zone us-central1-a
-   sudo git clone https://github.com/jayendravarma04/webinfo /opt/webinfo
-   cd /opt/webinfo && sudo bash deploy/install.sh     # prompts for keys (hidden input)
+   sudo git clone git@github.com:jayendravarma04/WebInfo.git /opt/webinfo   # read-only deploy key
+   cd /opt/webinfo && sudo bash deploy/install.sh
+   sudo bash deploy/set-keys.sh      # hidden prompts for Gemini ×2 + Tavily
    ```
 3. Open `http://<EXTERNAL_IP>/`. Updates: `sudo bash deploy/update.sh`.
 
